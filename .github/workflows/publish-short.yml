@@ -1,0 +1,81 @@
+name: Publish a Short
+run-name: "Publish run ${{ inputs.run_id }} [${{ inputs.request_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID of the 'Make a Short' run (the number in its web address)"
+        required: true
+        type: string
+      youtube:
+        type: boolean
+        default: true
+      instagram:
+        type: boolean
+        default: false
+      channel:
+        type: choice
+        default: S
+        options: [S, B]
+      privacy:
+        type: choice
+        default: private
+        options: [private, unlisted, public]
+      publish_at:
+        description: "Schedule (UTC, e.g. 2026-11-20T13:00:00Z). Leave empty to post now"
+        required: false
+        type: string
+      title:
+        description: "Leave empty to use the AI title"
+        required: false
+        type: string
+      description:
+        description: "Leave empty to use the AI description"
+        required: false
+        type: string
+      hashtags:
+        description: "Space separated. Leave empty to use the AI hashtags"
+        required: false
+        type: string
+      request_id:
+        description: "Used by the website. Leave empty."
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install google-api-python-client google-auth google-auth-oauthlib requests
+      - uses: actions/download-artifact@v4
+        with:
+          name: short
+          path: out
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Post the video
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          YT_TOKEN_S: ${{ secrets.YT_TOKEN_S }}
+          YT_TOKEN_B: ${{ secrets.YT_TOKEN_B }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          YOUTUBE: ${{ inputs.youtube }}
+          INSTAGRAM: ${{ inputs.instagram }}
+          CHANNEL: ${{ inputs.channel }}
+          PRIVACY: ${{ inputs.privacy }}
+          PUBLISH_AT: ${{ inputs.publish_at }}
+          TITLE: ${{ inputs.title }}
+          DESCRIPTION: ${{ inputs.description }}
+          HASHTAGS: ${{ inputs.hashtags }}
+        run: python gh_publish.py

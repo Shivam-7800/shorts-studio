@@ -1,0 +1,19 @@
+# --- secrets: never commit these ---
+.env
+client_secret*.json
+token_*.json
+
+# --- generated media ---
+videos/
+work/
+incoming/
+audio/
+assets/
+*.temp-audio.*
+
+# --- python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+my_voice/

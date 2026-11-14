@@ -1,0 +1,52 @@
+name: Write text
+run-name: "Write ${{ inputs.mode }}: ${{ inputs.topic }}${{ inputs.title }} [${{ inputs.request_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: script
+        options: [script, describe]
+      topic:
+        required: false
+        type: string
+      title:
+        required: false
+        type: string
+      language:
+        type: choice
+        default: hi-IN
+        options: [hi-IN, en-IN, ta-IN, te-IN, kn-IN, mr-IN, bn-IN, gu-IN]
+      context:
+        description: "Script, for better descriptions"
+        required: false
+        type: string
+      request_id:
+        description: "Used by the website. Leave empty."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install google-genai requests google-auth google-auth-oauthlib google-api-python-client
+      - name: Ask Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODE: ${{ inputs.mode }}
+          TOPIC: ${{ inputs.topic }}
+          TITLE: ${{ inputs.title }}
+          LANGUAGE: ${{ inputs.language }}
+          CONTEXT: ${{ inputs.context }}
+        run: python gh_ai.py

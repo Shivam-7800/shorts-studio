@@ -1,0 +1,10 @@
+flask>=3.0
+python-dotenv>=1.0
+requests>=2.31
+moviepy>=2.0
+proglog
+edge-tts>=6.1
+google-genai>=1.0
+google-api-python-client>=2.100
+google-auth>=2.23
+google-auth-oauthlib>=1.1

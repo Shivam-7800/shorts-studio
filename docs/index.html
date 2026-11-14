@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Shorts Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #1d1530;
+  --panel: #271d3e;
+  --panel-2: #30254b;
+  --line: #3e3160;
+  --marigold: #ffb627;
+  --marigold-ink: #2a1a00;
+  --rose: #ff6f91;
+  --mint: #7ee2b8;
+  --text: #f3ecfc;
+  --muted: #ab9bcb;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, #3a2463 0%, transparent 60%),
+    var(--night);
+  color: var(--text);
+  font: 16px/1.55 var(--body);
+  min-height: 100vh;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--marigold); outline-offset: 2px; }
+a { color: var(--marigold); }
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 22px clamp(16px, 4vw, 48px);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px; background: var(--marigold);
+  display: grid; place-items: center;
+}
+.brand-mark::after {
+  content: ""; width: 0; height: 0; margin-left: 3px;
+  border-left: 12px solid var(--marigold-ink); border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+}
+.brand h1 { font: 800 1.35rem/1 var(--display); margin: 0; letter-spacing: -0.01em; }
+.status-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.pill {
+  font-size: .8rem; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line);
+  color: var(--muted); display: inline-flex; align-items: center; gap: 6px;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rose); }
+.pill.ok::before { background: var(--mint); }
+
+/* ---------- layout ---------- */
+main {
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: clamp(24px, 4vw, 56px);
+  padding: 8px clamp(16px, 4vw, 48px) 64px; max-width: 1280px; margin: 0 auto; align-items: start;
+}
+@media (max-width: 960px) { main { grid-template-columns: minmax(0, 1fr); } .phone { max-width: 340px; margin: 0 auto; } .stage { position: static !important; order: -1; } }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; background: var(--panel); padding: 4px; border-radius: 14px; width: fit-content; max-width: 100%; overflow-x: auto; }
+.tab {
+  border: 0; background: none; padding: 9px 16px; border-radius: 10px; cursor: pointer; color: var(--muted);
+  font-weight: 600; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--panel-2); color: var(--text); }
+.view { margin-top: 24px; }
+.view[hidden] { display: none; }
+
+/* ---------- steps ---------- */
+.step {
+  display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 22px 0;
+  border-top: 1px solid var(--line);
+}
+.step:first-child { border-top: 0; padding-top: 0; }
+.step-num {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--line);
+  display: grid; place-items: center; font: 700 .95rem var(--display); color: var(--muted);
+}
+.step.active .step-num { border-color: var(--marigold); color: var(--marigold); }
+.step.done .step-num { background: var(--marigold); border-color: var(--marigold); color: var(--marigold-ink); }
+.step.locked { opacity: .45; }
+.step.locked .step-body > :not(h2) { pointer-events: none; }
+.step h2 { font: 700 1.3rem/1.2 var(--display); margin: 4px 0 4px; letter-spacing: -0.01em; }
+.hint { color: var(--muted); font-size: .92rem; margin: 0 0 14px; max-width: 62ch; }
+
+/* ---------- controls ---------- */
+label.field { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 6px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row[hidden] { display: none; }
+.row > .grow { flex: 1 1 240px; }
+input[type=text], textarea, select {
+  width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; outline: none; transition: border-color .15s;
+}
+input[type=text]:focus, textarea:focus, select:focus { border-color: var(--marigold); }
+textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+#topic { font: 600 1.15rem var(--body); padding: 14px 16px; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 8px 14px; border-radius: 9px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: .92rem; }
+.seg input:checked + label { background: var(--panel-2); color: var(--text); }
+.seg input:focus-visible + label { outline: 2px solid var(--marigold); }
+
+.btn {
+  border: 0; border-radius: 12px; padding: 12px 20px; font-weight: 600; cursor: pointer;
+  background: var(--panel-2); color: var(--text); display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--marigold); color: var(--marigold-ink); }
+.btn.small { padding: 7px 12px; font-size: .88rem; border-radius: 9px; }
+.btn.ghost { background: none; border: 1px solid var(--line); }
+.btn.danger { background: none; color: var(--rose); border: 1px solid #5a2e4a; }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.meta { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+
+/* ---------- chips ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.chip { background: var(--panel-2); padding: 4px 6px 4px 10px; border-radius: 99px; font-size: .88rem; display: inline-flex; align-items: center; gap: 4px; }
+.chip button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 1rem; line-height: 1; }
+.chips input { border: 0; background: none; flex: 1 1 120px; padding: 4px; outline: none; }
+
+/* ---------- publish ---------- */
+.dest { border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 12px; background: var(--panel); }
+.dest-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dest-head h3 { margin: 0; font: 700 1.05rem var(--display); display: flex; align-items: center; gap: 10px; }
+.dest-body { margin-top: 14px; display: grid; gap: 14px; }
+.dest-body[hidden] { display: none; }
+.logo { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+.logo.yt { background: #ff0033; }
+.logo.yt::after { content: ""; border-left: 9px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent; margin-left: 2px; }
+.logo.ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+.logo.ig::after { content: ""; width: 11px; height: 11px; border: 2px solid #fff; border-radius: 4px; }
+.switch { position: relative; width: 46px; height: 26px; flex: none; }
+.switch input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; position: relative; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--line); transition: background .15s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform .15s; }
+.switch input:checked + span { background: var(--marigold); }
+.switch input:checked + span::after { transform: translateX(20px); background: var(--marigold-ink); }
+.switch input:focus-visible + span { outline: 2px solid var(--marigold); outline-offset: 2px; }
+.switch input:disabled { cursor: not-allowed; }
+.channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.channel {
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--night);
+}
+.channel.selected { border-color: var(--marigold); }
+.channel small { color: var(--muted); display: block; font-size: .8rem; }
+.channel small.on { color: var(--mint); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: .92rem; }
+.check input { margin-top: 4px; accent-color: var(--marigold); }
+code { overflow-wrap: anywhere; }
+.setup { border: 1.5px solid var(--marigold); border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; background: var(--panel); }
+.setup h2 { font: 700 1.2rem var(--display); margin: 0 0 4px; }
+.setup a { font-weight: 500; margin-left: 6px; }
+.voicebox { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--panel); display: grid; gap: 10px; }
+.voicebox[hidden] { display: none; }
+.voicebox audio { width: 100%; height: 36px; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rose); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 6px; }
+.label-row .field { margin: 0; }
+.notice { border-left: 3px solid var(--rose); padding: 8px 12px; background: #34203f; border-radius: 0 10px 10px 0; font-size: .92rem; }
+.notice.warn { border-color: var(--marigold); background: #332a33; }
+.results { display: grid; gap: 8px; margin-top: 14px; }
+.result-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #1f3a36; color: var(--mint); text-decoration: none; font-weight: 600; word-break: break-all; }
+.result-link.err { background: #3b2034; color: var(--rose); }
+
+/* ---------- drop zone ---------- */
+.drop {
+  border: 2px dashed var(--line); border-radius: 18px; padding: 40px 20px; text-align: center; cursor: pointer;
+  background: var(--panel); transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--marigold); background: var(--panel-2); }
+.drop strong { font: 700 1.15rem var(--display); display: block; margin-bottom: 4px; }
+
+/* ---------- library ---------- */
+.library { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.lib-item { background: var(--panel); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+.lib-item video { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; background: #000; }
+.lib-item .info { padding: 10px; font-size: .82rem; }
+.lib-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-item .actions { display: flex; gap: 6px; margin-top: 8px; }
+.empty { color: var(--muted); padding: 30px 0; }
+
+/* ---------- the phone stage ---------- */
+.stage { position: sticky; top: 20px; }
+.phone {
+  aspect-ratio: 9 / 16; width: 100%; border-radius: 38px; padding: 10px;
+  background: linear-gradient(160deg, #4a3a70, #241a3a); box-shadow: 0 30px 80px -30px #000, 0 0 0 1px #5a4885 inset;
+}
+.screen {
+  position: relative; width: 100%; height: 100%; border-radius: 30px; overflow: hidden;
+  background: radial-gradient(120% 80% at 50% 100%, #3b2463, #120c1f 70%);
+}
+.screen video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.segments { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 4px; z-index: 2; }
+.segments[hidden] { display: none; }
+.segment { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; }
+.segment i { display: block; height: 100%; width: 0; background: #fff; transition: width .4s; }
+.screen-msg {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 28px 24px 40px; gap: 12px;
+}
+.screen-msg[hidden] { display: none; }
+.screen-msg .now { font: 600 .85rem var(--body); color: var(--marigold); }
+.screen-msg .big { font: 800 1.7rem/1.15 var(--display); letter-spacing: -0.01em; }
+.screen-msg .caption {
+  font: 700 1.25rem/1.3 var(--display); background: rgba(0,0,0,.35); padding: 10px 12px; border-radius: 12px;
+  min-height: 3.2em;
+}
+.screen-msg .sub { color: var(--muted); font-size: .9rem; }
+.log {
+  margin-top: 16px; max-height: 180px; overflow-y: auto; font-size: .84rem; color: var(--muted);
+  border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 4px;
+}
+.log:empty { display: none; }
+.log div:last-child { color: var(--text); }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: var(--text); color: var(--night); padding: 12px 18px; border-radius: 12px; font-weight: 600;
+  transition: opacity .2s, transform .2s; z-index: 10; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { background: var(--rose); color: #2b0711; }
+
+@media (max-width: 480px) { .tab { padding: 8px 11px; font-size: .9rem; } .step { grid-template-columns: 1fr; gap: 8px; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
+}
+
+.setup { border: 1.5px solid var(--marigold); border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; background: var(--panel); }
+.setup[hidden] { display: none; }
+.setup h2 { font: 700 1.2rem var(--display); margin: 0 0 4px; }
+.runitem { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 8px; }
+.runitem .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.tag { font-size: .78rem; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); flex: none; }
+.tag.ok { color: var(--mint); border-color: #2f5a4c; } .tag.bad { color: var(--rose); border-color: #5a2e4a; }
+.ready-card { display: grid; gap: 12px; }
+.ready-card .btn { justify-content: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="brand-mark" aria-hidden="true"></div><h1>Shorts Studio</h1></div>
+  <button class="btn ghost small" id="settingsBtn" hidden>Settings</button>
+</header>
+
+<main>
+  <section>
+    <div class="setup" id="setup">
+      <h2>Connect your GitHub</h2>
+      <p class="hint">This page asks your GitHub repo to make the videos. It needs a token that can start the repo’s workflows. The token is saved only in this browser, so other visitors can’t use your channels.</p>
+      <div class="row">
+        <div class="grow"><label class="field" for="owner">GitHub username</label><input type="text" id="owner" autocomplete="off"></div>
+        <div class="grow"><label class="field" for="repo">Repository</label><input type="text" id="repo" autocomplete="off"></div>
+      </div>
+      <label class="field" for="token" style="margin-top:12px">Token</label>
+      <input type="text" id="token" autocomplete="off" placeholder="github_pat_..." style="-webkit-text-security:disc">
+      <p class="meta">github.com → Settings → Developer settings → Fine-grained tokens. Repository access: only this repo. Permission: Actions, Read and write.</p>
+      <div class="row" style="margin-top:12px"><button class="btn primary" id="saveSetup">Save</button><button class="btn ghost" id="forget">Forget token</button></div>
+    </div>
+
+    <div class="tabs" role="tablist" id="tabs" hidden>
+      <button class="tab" role="tab" aria-selected="true" data-view="create">Make a new Short</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="library">Library</button>
+    </div>
+
+    <!-- ===== CREATE ===== -->
+    <div class="view" id="view-create" hidden>
+      <div class="step active" id="step1">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h2>What’s the video about?</h2>
+          <p class="hint">One line is enough. Gemini writes a 30–45 second script you can edit before anything is rendered.</p>
+          <label class="field" for="topic">Topic</label>
+          <input type="text" id="topic" placeholder="Why Bengaluru rains feel different in November" autocomplete="off">
+          <div class="row" style="margin-top:14px">
+            <div class="grow">
+              <label class="field" for="language">Language</label>
+              <select id="language">
+                <option value="hi-IN">Hindi</option><option value="en-IN">English (India)</option><option value="ta-IN">Tamil</option>
+                <option value="te-IN">Telugu</option><option value="kn-IN">Kannada</option><option value="mr-IN">Marathi</option>
+                <option value="bn-IN">Bengali</option><option value="gu-IN">Gujarati</option>
+              </select>
+            </div>
+            <div class="grow">
+              <label class="field" for="style">Look</label>
+              <select id="style"><option value="footage">Real stock footage</option><option value="cartoon">Cartoon (AI images)</option><option value="anime">Anime (AI images)</option></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div>
+              <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Voice</span>
+              <div class="seg" role="radiogroup" aria-label="Voice">
+                <input type="radio" name="gender" id="gF" value="female" checked><label for="gF">Female</label>
+                <input type="radio" name="gender" id="gM" value="male"><label for="gM">Male</label>
+                <input type="radio" name="gender" id="gMine" value="mine"><label for="gMine">My voice</label>
+              </div>
+            </div>
+            <button class="btn primary" id="writeBtn">Write script</button>
+          </div>
+          <div class="voicebox" id="voiceBox" hidden>
+            <strong>Your voice on GitHub</strong>
+            <p class="meta" style="margin:0">Works for English and Hindi. Builds take 10 to 15 minutes because GitHub has to load the voice model. One-time setup: record your voice in the PC app, run <code>python make_voice_secret.py</code>, and save what it copies as the <code>VOICE_SAMPLE_B64</code> secret.</p>
+          </div>
+          <p class="meta" id="styleNote" hidden>AI images come from a free service that draws about one picture every 15 seconds, so a 10-scene video takes 2 to 3 minutes longer.</p>
+        </div>
+      </div>
+
+      <div class="step" id="step2">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h2>Check the script</h2>
+          <p class="hint">Each sentence becomes one scene with its own voice line and footage. Fix wording here; it’s much faster than re-rendering.</p>
+          <textarea id="script" rows="9" placeholder="Your script appears here. You can also paste your own."></textarea>
+          <div class="row" style="justify-content:space-between;margin-top:10px">
+            <span class="meta" id="scriptMeta"></span>
+            <div class="row" style="margin:0">
+              <button class="btn ghost small" id="rewriteBtn">Write a new version</button>
+              <button class="btn primary" id="buildBtn">Build video</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step locked" id="step3">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h2>Review and publish</h2>
+          <p class="hint">Download and watch it first. Nothing is posted until you press Publish.</p>
+          <div id="publishArea">
+            <label class="field" for="pTitle">Title</label>
+            <input type="text" id="pTitle" maxlength="100">
+            <div class="label-row"><label class="field" for="pDesc">Description</label><button type="button" class="btn small ghost" id="autoDesc">Write from title</button></div>
+            <textarea id="pDesc" rows="4" placeholder="Written automatically. Edit freely."></textarea>
+            <label class="field" style="margin-top:12px">Hashtags</label>
+            <div class="chips" id="chips"><input type="text" placeholder="Add and press Enter" aria-label="Add a hashtag"></div>
+            <div style="margin-top:20px">
+              <div class="dest">
+                <div class="dest-head"><h3><span class="logo yt" aria-hidden="true"></span>YouTube Shorts</h3>
+                  <label class="switch"><input type="checkbox" id="ytOn" checked aria-label="Post to YouTube"><span></span></label></div>
+                <div class="dest-body" id="ytBody">
+                  <div class="channels" id="channels">
+                    <div class="channel selected" data-key="S" role="radio" aria-checked="true" tabindex="0"><div><strong>Channel S</strong><small class="on">Connected</small></div></div>
+                    <div class="channel" data-key="B" role="radio" aria-checked="false" tabindex="0"><div><strong>Channel B</strong><small class="on">Connected</small></div></div>
+                  </div>
+                  <div>
+                    <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Who can see it</span>
+                    <div class="seg" role="radiogroup" aria-label="Visibility">
+                      <input type="radio" name="priv" id="pv1" value="private" checked><label for="pv1">Only me</label>
+                      <input type="radio" name="priv" id="pv2" value="unlisted"><label for="pv2">Anyone with the link</label>
+                      <input type="radio" name="priv" id="pv3" value="public"><label for="pv3">Everyone</label>
+                    </div>
+                  </div>
+                  <label class="check"><input type="checkbox" id="schedOn"> <span>Schedule it for later instead of posting now</span></label>
+                  <div id="schedBox" hidden>
+                    <input type="datetime-local" id="schedAt" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px">
+                    <p class="meta">Your local time. It uploads now as private and YouTube makes it public at this time.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="dest">
+                <div class="dest-head"><h3><span class="logo ig" aria-hidden="true"></span>Instagram Reels</h3>
+                  <label class="switch"><input type="checkbox" id="igOn" aria-label="Post to Instagram"><span></span></label></div>
+                <div class="dest-body" id="igBody" hidden>
+                  <div class="notice warn">Reels are public the moment they’re published. Needs the <code>IG_USER_ID</code> and <code>IG_ACCESS_TOKEN</code> secrets in your repo (see README).</div>
+                  <label class="check"><input type="checkbox" id="igConfirm"> <span>I’ve watched it and want it public on Instagram</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:6px">
+              <button class="btn primary" id="publishBtn">Publish</button>
+              <a class="btn ghost small" id="dlBtn" target="_blank" rel="noopener">Download MP4</a>
+            </div>
+            <div class="results" id="results"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LIBRARY ===== -->
+    <div class="view" id="view-library" hidden>
+      <p class="hint">Videos made on GitHub in the last 7 days. Open one to download or publish it.</p>
+      <div id="library"></div>
+    </div>
+  </section>
+
+  <!-- ===== PHONE PREVIEW ===== -->
+  <aside class="stage" aria-label="Preview">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="segments" id="segments" hidden></div>
+        <div class="screen-msg" id="screenMsg">
+          <div class="big">Your Short shows up here.</div>
+          <div class="sub">Type a topic to begin.</div>
+        </div>
+      </div>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const API = "https://api.github.com";
+let cfg = JSON.parse(localStorage.getItem("ss-cfg") || "{}");
+if (!cfg.owner && location.hostname.endsWith(".github.io")) cfg.owner = location.hostname.split(".")[0];
+if (!cfg.repo) cfg.repo = location.pathname.split("/").filter(Boolean)[0] || "shorts-studio";
+let currentRun = null, tags = [], channel = "S", captionTimer = null;
+
+// ---------- helpers ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function toast(msg, err) { const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : ""); clearTimeout(toast.t); toast.t = setTimeout(() => t.className = "toast" + (err ? " err" : ""), err ? 7000 : 3000); }
+function busy(b, on, label) { if (on) { b._h = b.innerHTML; b.disabled = true; b.innerHTML = `<span class="spin"></span>${label}`; } else { b.disabled = false; if (b._h) b.innerHTML = b._h; } }
+function setStep(id, state) { const el = $("#" + id); el.classList.remove("active", "done", "locked"); if (state) el.classList.add(state); }
+function addLog(msg) { const d = document.createElement("div"); d.textContent = msg; $("#log").append(d); $("#log").scrollTop = 1e9; }
+function decode(b64) { return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64.trim()), c => c.charCodeAt(0)))); }
+const repoPath = () => `/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`;
+
+async function gh(path, opts = {}) {
+  const res = await fetch(path.startsWith("http") ? path : API + path, { ...opts, headers: {
+    Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28",
+    ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+  if (res.status === 401) throw new Error("GitHub rejected the token. Click Settings and paste a new one.");
+  if (res.status === 403 || res.status === 404) throw new Error("The token isn’t allowed to start builds. In the token settings choose “Only select repositories → shorts-studio” and set Actions to “Read and write”.");
+  if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || `GitHub error ${res.status}`); }
+  return res.status === 204 ? null : res.json();
+}
+
+// ---------- phone screen ----------
+function screen(now, big, sub = "", extra = "") {
+  clearInterval(captionTimer);
+  $("#screenMsg").innerHTML = `${now ? `<div class="now">${esc(now)}</div>` : ""}${big ? `<div class="big">${esc(big)}</div>` : ""}${sub ? `<div class="sub">${esc(sub)}</div>` : ""}${extra}`;
+}
+function screenCaptions(lines) {
+  clearInterval(captionTimer);
+  $("#screenMsg").innerHTML = `<div class="now" id="nowStep">Starting</div><div class="caption" id="caption"></div><div class="sub" id="subStep"></div>`;
+  let i = 0; const tick = () => { const c = $("#caption"); if (c) c.textContent = lines[i++ % lines.length] || ""; };
+  tick(); captionTimer = setInterval(tick, 2600);
+}
+function screenReady(run, art) {
+  $("#segments").hidden = true;
+  const link = art ? `https://github.com/${cfg.owner}/${cfg.repo}/actions/runs/${run.id}/artifacts/${art.id}` : run.html_url;
+  screen("Video ready", "Download and watch it.", "It comes as a zip file with short.mp4 inside. GitHub keeps it for 7 days.",
+    `<div class="ready-card"><a class="btn primary" href="${link}" target="_blank" rel="noopener">Download video</a></div>`);
+  $("#dlBtn").href = link;
+}
+function drawSegments(steps) {
+  const seg = $("#segments"); seg.hidden = false;
+  seg.innerHTML = steps.map(s => `<div class="segment"><i style="width:${s.conclusion === "success" ? 100 : s.status === "in_progress" ? 50 : 0}%"></i></div>`).join("");
+}
+
+// ---------- GitHub workflow runs ----------
+async function dispatch(workflow, inputs) {
+  const rid = Math.random().toString(36).slice(2, 10);
+  await gh(`${repoPath()}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: "main", inputs: { ...inputs, request_id: rid } }) });
+  for (let i = 0; i < 40; i++) {
+    await sleep(2500);
+    const d = await gh(`${repoPath()}/actions/workflows/${workflow}/runs?per_page=15`);
+    const run = d.workflow_runs.find(r => (r.display_title || "").includes(`[${rid}]`));
+    if (run) return run;
+  }
+  throw new Error("GitHub accepted the request but the run didn’t appear. Check the Actions tab.");
+}
+const STEP_NAMES = { "Run actions/checkout@v4": "Getting the code", "Run actions/setup-python@v5": "Preparing Python",
+  "Build the video": "Script, voice, footage and rendering", "Run actions/upload-artifact@v4": "Saving the video",
+  "Run actions/download-artifact@v4": "Fetching the video", "Upload to YouTube": "Uploading to YouTube", "Ask Gemini": "Gemini is writing" };
+const friendly = n => STEP_NAMES[n] || (n.startsWith("Run pip") ? "Installing tools" : n.replace(/^Run /, ""));
+
+async function watch(run, { segments = false } = {}) {
+  const start = Date.now(), seen = new Set();
+  while (true) {
+    const [r, jobs] = await Promise.all([gh(`${repoPath()}/actions/runs/${run.id}`), gh(`${repoPath()}/actions/runs/${run.id}/jobs`)]);
+    const job = jobs.jobs[0];
+    const steps = (job?.steps || []).filter(s => !/^(Set up job|Complete job|Post )/.test(s.name));
+    steps.forEach(s => { const k = s.name + s.status; if (s.status !== "queued" && !seen.has(k)) { seen.add(k); if (s.status === "in_progress") addLog(friendly(s.name)); } });
+    if (segments && steps.length) drawSegments(steps);
+    const cur = steps.find(s => s.status === "in_progress");
+    const secs = Math.round((Date.now() - start) / 1000);
+    if ($("#nowStep")) $("#nowStep").textContent = cur ? friendly(cur.name) : job ? "Starting" : "Waiting for a GitHub machine";
+    if ($("#subStep")) $("#subStep").textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} elapsed`;
+    if (r.status === "completed") {
+      if (r.conclusion !== "success") throw Object.assign(new Error("It stopped on GitHub. Click “Open on GitHub” in the log and look at the red step."), { run: r });
+      return { run: r, job };
+    }
+    await sleep(4000);
+  }
+}
+async function annotation(job, title) {
+  const notes = await gh(`${job.check_run_url}/annotations`);
+  const a = notes.find(n => n.title === title);
+  if (!a) throw new Error("GitHub finished but sent nothing back. Open the run on GitHub to see why.");
+  return decode(a.message);
+}
+function failLog(err) {
+  toast(err.message, true);
+  if (err.run) { const a = document.createElement("a"); a.href = err.run.html_url; a.target = "_blank"; a.textContent = "Open on GitHub"; $("#log").append(a); }
+}
+
+// ---------- setup ----------
+function show() {
+  const ready = cfg.owner && cfg.repo && cfg.token;
+  $("#setup").hidden = !!ready; $("#tabs").hidden = !ready; $("#view-create").hidden = !ready; $("#settingsBtn").hidden = !ready;
+  $("#view-library").hidden = true;
+  $("#owner").value = cfg.owner || ""; $("#repo").value = cfg.repo || "";
+}
+$("#saveSetup").onclick = () => {
+  cfg = { owner: $("#owner").value.trim(), repo: $("#repo").value.trim(), token: $("#token").value.trim() || cfg.token };
+  if (!cfg.owner || !cfg.repo || !cfg.token) return toast("Fill in all three boxes.", true);
+  localStorage.setItem("ss-cfg", JSON.stringify(cfg)); $("#token").value = ""; show(); toast("Connected.");
+};
+$("#forget").onclick = () => { delete cfg.token; localStorage.setItem("ss-cfg", JSON.stringify(cfg)); show(); toast("Token removed from this browser."); };
+$("#settingsBtn").onclick = () => { $("#setup").hidden = !$("#setup").hidden; };
+
+// ---------- tabs ----------
+$$(".tab").forEach(t => t.onclick = () => {
+  $$(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+  $("#view-create").hidden = t.dataset.view !== "create"; $("#view-library").hidden = t.dataset.view !== "library";
+  if (t.dataset.view === "library") loadLibrary();
+});
+
+// ---------- step 1+2: script ----------
+const splitLines = t => t.trim() ? t.split(/(?<=[.!?।])\s+/).filter(s => s.trim()) : [];
+function updateMeta() { const t = $("#script").value.trim(); const w = t ? t.split(/\s+/).length : 0;
+  $("#scriptMeta").textContent = t ? `${splitLines(t).length} scenes, roughly ${Math.round(w / 2.5)} seconds spoken` : ""; }
+$("#script").addEventListener("input", updateMeta);
+
+async function writeScript(btn) {
+  const topic = $("#topic").value.trim();
+  if (!topic) { $("#topic").focus(); return toast("Type a topic first.", true); }
+  busy(btn, true, "Writing…"); $("#log").innerHTML = "";
+  screen("Gemini is writing", topic, "On GitHub this takes about a minute.");
+  $("#screenMsg").insertAdjacentHTML("afterbegin", `<div class="now" id="nowStep" style="display:none"></div>`);
+  $("#screenMsg").insertAdjacentHTML("beforeend", `<div class="sub" id="subStep"></div>`);
+  try {
+    const run = await dispatch("ai-text.yml", { mode: "script", topic, language: $("#language").value });
+    const { job } = await watch(run);
+    const { script } = await annotation(job, "script");
+    $("#script").value = script; updateMeta();
+    setStep("step1", "done"); setStep("step2", "active");
+    screen("Script ready", topic, "Read it on the left, edit anything, then build the video.");
+  } catch (err) { failLog(err); screen("", "That didn’t work.", err.message); }
+  finally { busy(btn, false); }
+}
+$("#writeBtn").onclick = e => writeScript(e.currentTarget);
+$("#rewriteBtn").onclick = e => writeScript(e.currentTarget);
+$("#topic").addEventListener("keydown", e => { if (e.key === "Enter") writeScript($("#writeBtn")); });
+
+$("#buildBtn").onclick = async e => {
+  const btn = e.currentTarget, topic = $("#topic").value.trim(), script = $("#script").value.trim();
+  if (!topic || !script) return toast("A topic and a script are both needed. Click Write script or paste your own.", true);
+  busy(btn, true, "Building…"); $("#log").innerHTML = ""; setStep("step3", "locked"); $("#results").innerHTML = "";
+  screenCaptions(splitLines(script));
+  try {
+    const run = await dispatch("make-short.yml", { topic, script, title: "", language: $("#language").value,
+      voice: $("input[name=gender]:checked").value, style: $("#style").value });
+    const res = await watch(run, { segments: true });
+    await openResult(res.run, res.job);
+    setStep("step2", "done"); setStep("step3", "active");
+    toast("Video ready. Download and watch it before publishing.");
+  } catch (err) { failLog(err); $("#segments").hidden = true; screen("", "The build stopped.", err.message); }
+  finally { busy(btn, false); }
+};
+
+// ---------- step 3: review + publish ----------
+async function openResult(run, job) {
+  currentRun = run;
+  if (!job) job = (await gh(`${repoPath()}/actions/runs/${run.id}/jobs`)).jobs[0];
+  const arts = await gh(`${repoPath()}/actions/runs/${run.id}/artifacts`);
+  const art = arts.artifacts.find(a => a.name === "short" && !a.expired);
+  screenReady(run, art);
+  try {
+    const r = await annotation(job, "result");
+    $("#pTitle").value = r.title || ""; $("#pDesc").value = r.description || ""; tags = r.hashtags || []; drawChips();
+  } catch { /* older runs have no result note */ }
+  if (!art) toast("This video has expired. Build it again.", true);
+}
+function drawChips() {
+  const chips = $("#chips"), input = $("input", chips);
+  $$(".chip", chips).forEach(c => c.remove());
+  tags.forEach((t, i) => {
+    const c = document.createElement("span"); c.className = "chip";
+    c.innerHTML = `#${esc(t)}<button type="button" aria-label="Remove ${esc(t)}">×</button>`;
+    c.querySelector("button").onclick = () => { tags.splice(i, 1); drawChips(); };
+    chips.insertBefore(c, input);
+  });
+}
+$("#chips input").addEventListener("keydown", e => {
+  const input = e.currentTarget;
+  if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
+    e.preventDefault();
+    input.value.split(/[,\s]+/).map(s => s.replace(/^#/, "")).filter(Boolean).forEach(t => { if (!tags.includes(t)) tags.push(t); });
+    input.value = ""; drawChips();
+  } else if (e.key === "Backspace" && !input.value && tags.length) { tags.pop(); drawChips(); }
+});
+$$(".channel").forEach(el => {
+  const pick = () => { channel = el.dataset.key; $$(".channel").forEach(c => { c.classList.toggle("selected", c === el); c.setAttribute("aria-checked", c === el); }); };
+  el.onclick = pick; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+});
+$("#autoDesc").onclick = async e => {
+  const btn = e.currentTarget, title = $("#pTitle").value.trim();
+  if (!title) return toast("Write a title first.", true);
+  busy(btn, true, "Writing… (about a minute)");
+  try {
+    const run = await dispatch("ai-text.yml", { mode: "describe", title, language: $("#language").value, context: $("#script").value.slice(0, 3000) });
+    const { job } = await watch(run);
+    const r = await annotation(job, "describe");
+    $("#pDesc").value = r.description; tags = r.hashtags; drawChips(); toast("Description and hashtags written.");
+  } catch (err) { failLog(err); }
+  finally { busy(btn, false); }
+};
+$("#publishBtn").onclick = async e => {
+  if (!currentRun) return toast("Build or open a video first.", true);
+  const yt = $("#ytOn").checked, ig = $("#igOn").checked;
+  if (!yt && !ig) return toast("Turn on YouTube, Instagram, or both.", true);
+  if (ig && !$("#igConfirm").checked) return toast("Tick the Instagram confirmation box first.", true);
+  let publishAt = "";
+  if (yt && $("#schedOn").checked) {
+    const when = new Date($("#schedAt").value);
+    if (isNaN(when)) return toast("Pick a date and time for the schedule.", true);
+    if (when < new Date(Date.now() + 15 * 60 * 1000)) return toast("Pick a time at least 15 minutes from now.", true);
+    publishAt = when.toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+  const privacy = $("input[name=priv]:checked").value;
+  if (yt && !publishAt && privacy === "public" && !confirm("Post this publicly on YouTube now?")) return;
+  const btn = e.currentTarget; busy(btn, true, "Publishing…"); $("#results").innerHTML = "";
+  try {
+    const run = await dispatch("publish-short.yml", { run_id: String(currentRun.id), youtube: yt, instagram: ig,
+      channel, privacy, publish_at: publishAt,
+      title: $("#pTitle").value.trim(), description: $("#pDesc").value.trim(), hashtags: tags.join(" ") });
+    await watch(run);
+    $("#results").innerHTML = [
+      yt && `<a class="result-link" href="https://studio.youtube.com/" target="_blank" rel="noopener"><span class="logo yt"></span>${publishAt ? `Scheduled on Channel ${esc(channel)} for ${esc(new Date(publishAt).toLocaleString())}` : `Published on Channel ${esc(channel)}`}. Open YouTube Studio</a>`,
+      ig && `<a class="result-link" href="https://www.instagram.com/" target="_blank" rel="noopener"><span class="logo ig"></span>Reel published. Open Instagram</a>`,
+    ].filter(Boolean).join("");
+    toast(publishAt ? "Scheduled." : "Published.");
+  } catch (err) { failLog(err); $("#results").innerHTML = `<div class="result-link err">${esc(err.message)}</div>`; }
+  finally { busy(btn, false); }
+};
+
+// ---------- toggles ----------
+$$("input[name=gender]").forEach(r => r.addEventListener("change", () => $("#voiceBox").hidden = !$("#gMine").checked));
+$("#style").addEventListener("change", () => $("#styleNote").hidden = $("#style").value === "footage");
+$("#ytOn").addEventListener("change", () => $("#ytBody").hidden = !$("#ytOn").checked);
+$("#igOn").addEventListener("change", () => $("#igBody").hidden = !$("#igOn").checked);
+$("#schedOn").addEventListener("change", () => $("#schedBox").hidden = !$("#schedOn").checked);
+
+// ---------- library ----------
+async function loadLibrary() {
+  const lib = $("#library"); lib.innerHTML = `<p class="meta">Loading…</p>`;
+  try {
+    const { workflow_runs: list } = await gh(`${repoPath()}/actions/workflows/make-short.yml/runs?per_page=15`);
+    lib.innerHTML = list.length ? list.map(r => {
+      const title = (r.display_title || "").replace(/^Make: /, "").replace(/ \[[^\]]*\]$/, "");
+      const tag = r.status !== "completed" ? `<span class="tag">Building</span>` : r.conclusion === "success" ? `<span class="tag ok">Ready</span>` : `<span class="tag bad">Failed</span>`;
+      return `<div class="runitem"><span class="t">${esc(title)}</span><span class="row" style="margin:0">${tag}<button class="btn small primary" data-run="${r.id}">Open</button></span></div>`;
+    }).join("") : `<p class="empty">No videos yet. Make one in “Make a new Short”.</p>`;
+    $$("[data-run]", lib).forEach(b => b.onclick = async () => {
+      const run = list.find(x => String(x.id) === b.dataset.run);
+      if (run.status === "completed" && run.conclusion !== "success") return window.open(run.html_url, "_blank");
+      $$(".tab")[0].click();
+      if (run.status !== "completed") {
+        screenCaptions(["Still building on GitHub…"]);
+        try { const res = await watch(run, { segments: true }); await openResult(res.run, res.job); } catch (err) { failLog(err); return; }
+      } else await openResult(run);
+      setStep("step1", "done"); setStep("step2", "done"); setStep("step3", "active");
+      $("#step3").scrollIntoView({ behavior: "smooth" });
+    });
+  } catch (err) { lib.innerHTML = `<p class="empty">${esc(err.message)}</p>`; }
+}
+
+show();
+</script>
+</body>
+</html>

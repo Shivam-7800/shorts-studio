@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shorts Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #1d1530;
+  --panel: #271d3e;
+  --panel-2: #30254b;
+  --line: #3e3160;
+  --marigold: #ffb627;
+  --marigold-ink: #2a1a00;
+  --rose: #ff6f91;
+  --mint: #7ee2b8;
+  --text: #f3ecfc;
+  --muted: #ab9bcb;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, #3a2463 0%, transparent 60%),
+    var(--night);
+  color: var(--text);
+  font: 16px/1.55 var(--body);
+  min-height: 100vh;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--marigold); outline-offset: 2px; }
+a { color: var(--marigold); }
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 22px clamp(16px, 4vw, 48px);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px; background: var(--marigold);
+  display: grid; place-items: center;
+}
+.brand-mark::after {
+  content: ""; width: 0; height: 0; margin-left: 3px;
+  border-left: 12px solid var(--marigold-ink); border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+}
+.brand h1 { font: 800 1.35rem/1 var(--display); margin: 0; letter-spacing: -0.01em; }
+.status-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.pill {
+  font-size: .8rem; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line);
+  color: var(--muted); display: inline-flex; align-items: center; gap: 6px;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rose); }
+.pill.ok::before { background: var(--mint); }
+
+/* ---------- layout ---------- */
+main {
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: clamp(24px, 4vw, 56px);
+  padding: 8px clamp(16px, 4vw, 48px) 64px; max-width: 1280px; margin: 0 auto; align-items: start;
+}
+@media (max-width: 960px) { main { grid-template-columns: minmax(0, 1fr); } .phone { max-width: 340px; margin: 0 auto; } .stage { position: static !important; order: -1; } }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; background: var(--panel); padding: 4px; border-radius: 14px; width: fit-content; max-width: 100%; overflow-x: auto; }
+.tab {
+  border: 0; background: none; padding: 9px 16px; border-radius: 10px; cursor: pointer; color: var(--muted);
+  font-weight: 600; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--panel-2); color: var(--text); }
+.view { margin-top: 24px; }
+.view[hidden] { display: none; }
+
+/* ---------- steps ---------- */
+.step {
+  display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 22px 0;
+  border-top: 1px solid var(--line);
+}
+.step:first-child { border-top: 0; padding-top: 0; }
+.step-num {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--line);
+  display: grid; place-items: center; font: 700 .95rem var(--display); color: var(--muted);
+}
+.step.active .step-num { border-color: var(--marigold); color: var(--marigold); }
+.step.done .step-num { background: var(--marigold); border-color: var(--marigold); color: var(--marigold-ink); }
+.step.locked { opacity: .45; }
+.step.locked .step-body > :not(h2) { pointer-events: none; }
+.step h2 { font: 700 1.3rem/1.2 var(--display); margin: 4px 0 4px; letter-spacing: -0.01em; }
+.hint { color: var(--muted); font-size: .92rem; margin: 0 0 14px; max-width: 62ch; }
+
+/* ---------- controls ---------- */
+label.field { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 6px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row[hidden] { display: none; }
+.row > .grow { flex: 1 1 240px; }
+input[type=text], textarea, select {
+  width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; outline: none; transition: border-color .15s;
+}
+input[type=text]:focus, textarea:focus, select:focus { border-color: var(--marigold); }
+textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+#topic { font: 600 1.15rem var(--body); padding: 14px 16px; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 8px 14px; border-radius: 9px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: .92rem; }
+.seg input:checked + label { background: var(--panel-2); color: var(--text); }
+.seg input:focus-visible + label { outline: 2px solid var(--marigold); }
+
+.btn {
+  border: 0; border-radius: 12px; padding: 12px 20px; font-weight: 600; cursor: pointer;
+  background: var(--panel-2); color: var(--text); display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--marigold); color: var(--marigold-ink); }
+.btn.small { padding: 7px 12px; font-size: .88rem; border-radius: 9px; }
+.btn.ghost { background: none; border: 1px solid var(--line); }
+.btn.danger { background: none; color: var(--rose); border: 1px solid #5a2e4a; }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.meta { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+
+/* ---------- chips ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.chip { background: var(--panel-2); padding: 4px 6px 4px 10px; border-radius: 99px; font-size: .88rem; display: inline-flex; align-items: center; gap: 4px; }
+.chip button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 1rem; line-height: 1; }
+.chips input { border: 0; background: none; flex: 1 1 120px; padding: 4px; outline: none; }
+
+/* ---------- publish ---------- */
+.dest { border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 12px; background: var(--panel); }
+.dest-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dest-head h3 { margin: 0; font: 700 1.05rem var(--display); display: flex; align-items: center; gap: 10px; }
+.dest-body { margin-top: 14px; display: grid; gap: 14px; }
+.dest-body[hidden] { display: none; }
+.logo { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+.logo.yt { background: #ff0033; }
+.logo.yt::after { content: ""; border-left: 9px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent; margin-left: 2px; }
+.logo.ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+.logo.ig::after { content: ""; width: 11px; height: 11px; border: 2px solid #fff; border-radius: 4px; }
+.switch { position: relative; width: 46px; height: 26px; flex: none; }
+.switch input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; position: relative; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--line); transition: background .15s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform .15s; }
+.switch input:checked + span { background: var(--marigold); }
+.switch input:checked + span::after { transform: translateX(20px); background: var(--marigold-ink); }
+.switch input:focus-visible + span { outline: 2px solid var(--marigold); outline-offset: 2px; }
+.switch input:disabled { cursor: not-allowed; }
+.channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.channel {
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--night);
+}
+.channel.selected { border-color: var(--marigold); }
+.channel small { color: var(--muted); display: block; font-size: .8rem; }
+.channel small.on { color: var(--mint); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: .92rem; }
+.check input { margin-top: 4px; accent-color: var(--marigold); }
+code { overflow-wrap: anywhere; }
+.setup { border: 1.5px solid var(--marigold); border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; background: var(--panel); }
+.setup h2 { font: 700 1.2rem var(--display); margin: 0 0 4px; }
+.setup a { font-weight: 500; margin-left: 6px; }
+.voicebox { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--panel); display: grid; gap: 10px; }
+.voicebox[hidden] { display: none; }
+.voicebox audio { width: 100%; height: 36px; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rose); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 6px; }
+.label-row .field { margin: 0; }
+.notice { border-left: 3px solid var(--rose); padding: 8px 12px; background: #34203f; border-radius: 0 10px 10px 0; font-size: .92rem; }
+.notice.warn { border-color: var(--marigold); background: #332a33; }
+.results { display: grid; gap: 8px; margin-top: 14px; }
+.result-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #1f3a36; color: var(--mint); text-decoration: none; font-weight: 600; word-break: break-all; }
+.result-link.err { background: #3b2034; color: var(--rose); }
+
+/* ---------- drop zone ---------- */
+.drop {
+  border: 2px dashed var(--line); border-radius: 18px; padding: 40px 20px; text-align: center; cursor: pointer;
+  background: var(--panel); transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--marigold); background: var(--panel-2); }
+.drop strong { font: 700 1.15rem var(--display); display: block; margin-bottom: 4px; }
+
+/* ---------- library ---------- */
+.library { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.lib-item { background: var(--panel); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+.lib-item video { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; background: #000; }
+.lib-item .info { padding: 10px; font-size: .82rem; }
+.lib-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-item .actions { display: flex; gap: 6px; margin-top: 8px; }
+.empty { color: var(--muted); padding: 30px 0; }
+
+/* ---------- the phone stage ---------- */
+.stage { position: sticky; top: 20px; }
+.phone {
+  aspect-ratio: 9 / 16; width: 100%; border-radius: 38px; padding: 10px;
+  background: linear-gradient(160deg, #4a3a70, #241a3a); box-shadow: 0 30px 80px -30px #000, 0 0 0 1px #5a4885 inset;
+}
+.screen {
+  position: relative; width: 100%; height: 100%; border-radius: 30px; overflow: hidden;
+  background: radial-gradient(120% 80% at 50% 100%, #3b2463, #120c1f 70%);
+}
+.screen video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.segments { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 4px; z-index: 2; }
+.segments[hidden] { display: none; }
+.segment { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; }
+.segment i { display: block; height: 100%; width: 0; background: #fff; transition: width .4s; }
+.screen-msg {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 28px 24px 40px; gap: 12px;
+}
+.screen-msg[hidden] { display: none; }
+.screen-msg .now { font: 600 .85rem var(--body); color: var(--marigold); }
+.screen-msg .big { font: 800 1.7rem/1.15 var(--display); letter-spacing: -0.01em; }
+.screen-msg .caption {
+  font: 700 1.25rem/1.3 var(--display); background: rgba(0,0,0,.35); padding: 10px 12px; border-radius: 12px;
+  min-height: 3.2em;
+}
+.screen-msg .sub { color: var(--muted); font-size: .9rem; }
+.log {
+  margin-top: 16px; max-height: 180px; overflow-y: auto; font-size: .84rem; color: var(--muted);
+  border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 4px;
+}
+.log:empty { display: none; }
+.log div:last-child { color: var(--text); }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: var(--text); color: var(--night); padding: 12px 18px; border-radius: 12px; font-weight: 600;
+  transition: opacity .2s, transform .2s; z-index: 10; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { background: var(--rose); color: #2b0711; }
+
+@media (max-width: 480px) { .tab { padding: 8px 11px; font-size: .9rem; } .step { grid-template-columns: 1fr; gap: 8px; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="brand-mark" aria-hidden="true"></div><h1>Shorts Studio</h1></div>
+  <div class="status-pills" id="pills"></div>
+</header>
+
+<main>
+  <section>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-view="create">Make a new Short</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="own">Use my own video</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="library">Library</button>
+    </div>
+
+    <!-- ===== CREATE ===== -->
+    <div class="view" id="view-create">
+      <div id="setupNotice"></div>
+
+      <div class="step active" id="step1">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h2>What’s the video about?</h2>
+          <p class="hint">One line is enough. Gemini writes a 30–45 second script you can edit before anything is rendered.</p>
+          <label class="field" for="topic">Topic</label>
+          <input type="text" id="topic" placeholder="Why Bengaluru rains feel different in November" autocomplete="off">
+          <div class="row" style="margin-top:14px">
+            <div class="grow">
+              <label class="field" for="language">Language</label>
+              <select id="language"></select>
+            </div>
+            <div class="grow">
+              <label class="field" for="style">Look</label>
+              <select id="style"></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div>
+              <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Voice</span>
+              <div class="seg" role="radiogroup" aria-label="Voice">
+                <input type="radio" name="gender" id="gF" value="female" checked><label for="gF">Female</label>
+                <input type="radio" name="gender" id="gM" value="male"><label for="gM">Male</label>
+                <input type="radio" name="gender" id="gMine" value="mine"><label for="gMine">My voice</label>
+              </div>
+            </div>
+            <button class="btn primary" id="writeBtn">Write script</button>
+          </div>
+          <div class="voicebox" id="voiceBox" hidden></div>
+          <p class="meta" id="styleNote" hidden>AI images come from a free service that draws about one picture every 15 seconds, so a 10-scene video takes 2 to 3 minutes longer than stock footage.</p>
+        </div>
+      </div>
+
+      <div class="step" id="step2">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h2>Check the script</h2>
+          <p class="hint">Each sentence becomes one scene with its own voice line and footage. Fix wording here; it’s much faster than re-rendering.</p>
+          <textarea id="script" rows="9" placeholder="Your script appears here. You can also paste your own."></textarea>
+          <div class="row" style="justify-content:space-between;margin-top:10px">
+            <span class="meta" id="scriptMeta"></span>
+            <div class="row">
+              <button class="btn ghost small" id="rewriteBtn">Write a new version</button>
+              <button class="btn primary" id="buildBtn">Build video</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step locked" id="step3">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h2>Review and publish</h2>
+          <p class="hint">Watch it in the preview first. Nothing is posted until you press Publish.</p>
+          <div id="publishArea"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== OWN VIDEO ===== -->
+    <div class="view" id="view-own" hidden>
+      <div class="step active" id="ownStep1">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h2>Bring a video you already have</h2>
+          <p class="hint">It’s cropped to fill a vertical 9:16 frame (never stretched). No Gemini, Pexels or voice involved.</p>
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a video file">
+            <strong id="dropTitle">Drop a video here</strong>
+            <span class="meta" id="dropSub">or click to choose a file</span>
+            <input type="file" id="fileInput" accept="video/*" hidden>
+          </div>
+          <label class="check" style="margin-top:14px"><input type="checkbox" id="trim" checked> <span>If it’s longer than <span id="maxSec">180</span> seconds, keep only the beginning so it still counts as a Short</span></label>
+          <div style="margin-top:14px"><button class="btn primary" id="reframeBtn" disabled>Convert to vertical</button></div>
+        </div>
+      </div>
+      <div class="step locked" id="ownStep2">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h2>Review and publish</h2>
+          <p class="hint">Watch it in the preview first. Nothing is posted until you press Publish.</p>
+          <div id="ownPublishArea"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LIBRARY ===== -->
+    <div class="view" id="view-library" hidden>
+      <p class="hint">Everything in your <code>videos</code> folder. Open one to publish it again or to another platform.</p>
+      <div class="library" id="library"></div>
+    </div>
+  </section>
+
+  <!-- ===== PHONE PREVIEW ===== -->
+  <aside class="stage" aria-label="Preview">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="segments" id="segments" hidden></div>
+        <div class="screen-msg" id="screenMsg">
+          <div class="big">Your Short shows up here.</div>
+          <div class="sub">Type a topic to begin, or drop in a video you already have.</div>
+        </div>
+      </div>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<template id="publishTpl">
+  <div class="publish">
+    <label class="field">Title</label>
+    <input type="text" class="p-title" maxlength="100">
+    <div class="label-row"><label class="field">Description</label><button type="button" class="btn small ghost p-autodesc">Write from title</button></div>
+    <textarea class="p-desc" rows="4" placeholder="Written automatically from your title. Edit freely."></textarea>
+    <label class="field" style="margin-top:12px">Hashtags</label>
+    <div class="chips p-chips"><input type="text" placeholder="Add and press Enter" aria-label="Add a hashtag"></div>
+
+    <div style="margin-top:20px">
+      <div class="dest">
+        <div class="dest-head">
+          <h3><span class="logo yt" aria-hidden="true"></span>YouTube Shorts</h3>
+          <label class="switch"><input type="checkbox" class="p-yt" checked aria-label="Post to YouTube"><span></span></label>
+        </div>
+        <div class="dest-body p-yt-body">
+          <div class="channels p-channels"></div>
+          <div>
+            <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Who can see it</span>
+            <div class="seg p-privacy" role="radiogroup" aria-label="Visibility"></div>
+          </div>
+          <label class="check"><input type="checkbox" class="p-sched-on"> <span>Schedule it for later instead of posting now</span></label>
+          <div class="p-sched" hidden>
+            <input type="datetime-local" class="p-sched-at" style="width:100%;background:var(--night);border:1px solid var(--line);border-radius:12px;padding:11px 14px">
+            <p class="meta">Uploads now as private; YouTube makes it public at this time.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dest">
+        <div class="dest-head">
+          <h3><span class="logo ig" aria-hidden="true"></span>Instagram Reels</h3>
+          <label class="switch"><input type="checkbox" class="p-ig" aria-label="Post to Instagram"><span></span></label>
+        </div>
+        <div class="dest-body p-ig-body" hidden>
+          <div class="notice warn">Reels are public the moment they’re published. There’s no private or unlisted option.</div>
+          <label class="check"><input type="checkbox" class="p-ig-confirm"> <span>I’ve watched it and want it public on Instagram</span></label>
+        </div>
+        <p class="meta p-ig-off" hidden>Instagram needs a Business or Creator account and a Meta token. Paste them below to turn this on.</p><div class="row p-ig-keys" style="margin-top:8px"><input type="text" class="grow p-ig-uid" placeholder="Instagram user ID"><input type="text" class="grow p-ig-tok" placeholder="Instagram access token"><button class="btn small ghost p-ig-save">Save</button></div><p hidden></p>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:6px">
+      <button class="btn primary p-publish">Publish</button>
+      <a class="btn ghost small p-download" download>Download MP4</a>
+    </div>
+    <div class="results p-results"></div>
+  </div>
+</template>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+let CONFIG = null;
+let currentVideo = null;
+
+const STEP_TEXT = {
+  visuals: "Planning visuals and description", voice: "Recording the voiceover", footage: "Getting clips and images",
+  render: "Rendering the video", hashtags: "Suggesting hashtags", load: "Opening your video",
+  youtube: "Uploading to YouTube", instagram: "Publishing to Instagram", signin: "Waiting for Google sign-in",
+};
+
+// ---------- helpers ----------
+async function api(path, opts = {}) {
+  const init = { ...opts };
+  if (opts.json) { init.method = init.method || "POST"; init.headers = { "Content-Type": "application/json" }; init.body = JSON.stringify(opts.json); }
+  let res;
+  try { res = await fetch(path, init); }
+  catch { throw new Error("Can’t reach the app. Is python app.py still running?"); }
+  if (res.status === 401) { location.href = "/login"; throw new Error("Please log in again."); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+function toast(msg, err = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = "toast" + (err ? " err" : ""), err ? 6000 : 3000);
+}
+function busy(btn, on, label) {
+  if (on) { btn._label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>${label || btn.textContent}`; }
+  else { btn.disabled = false; if (btn._label) btn.innerHTML = btn._label; }
+}
+function setStep(id, state) {
+  const el = $("#" + id); el.classList.remove("active", "done", "locked"); el.classList.add(state);
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function addLog(msg) { const d = document.createElement("div"); d.textContent = msg; $("#log").append(d); $("#log").scrollTop = 1e9; }
+
+// ---------- screen states ----------
+function screenMessage(now, big, sub = "") {
+  $("#screen").querySelector("video")?.remove();
+  $("#screenMsg").hidden = false;
+  $("#screenMsg").innerHTML = `${now ? `<div class="now">${esc(now)}</div>` : ""}<div class="big">${esc(big)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}`;
+}
+function screenCaptions(lines) {
+  $("#screen").querySelector("video")?.remove();
+  $("#screenMsg").hidden = false;
+  $("#screenMsg").innerHTML = `<div class="now" id="nowStep">Starting</div><div class="caption" id="caption"></div><div class="sub" id="subStep"></div>`;
+  let i = 0;
+  clearInterval(screenCaptions._t);
+  const tick = () => { const c = $("#caption"); if (!c) return clearInterval(screenCaptions._t); c.textContent = lines[i % lines.length] || ""; i++; };
+  tick(); screenCaptions._t = setInterval(tick, 2600);
+}
+function screenVideo(name) {
+  clearInterval(screenCaptions._t);
+  $("#segments").hidden = true;
+  $("#screenMsg").hidden = true;
+  $("#screen").querySelector("video")?.remove();
+  const v = document.createElement("video");
+  v.src = `/media/${encodeURIComponent(name)}?t=${Date.now()}`; v.controls = true; v.playsInline = true; v.autoplay = true;
+  $("#screen").append(v);
+}
+function drawSegments(job) {
+  const seg = $("#segments"); seg.hidden = false;
+  const idx = job.steps.indexOf(job.step);
+  seg.innerHTML = job.steps.map((s, i) => {
+    const w = job.status === "done" || i < idx ? 100 : i === idx ? Math.max(6, job.pct * 100) : 0;
+    return `<div class="segment"><i style="width:${w}%"></i></div>`;
+  }).join("");
+  const now = $("#nowStep"), sub = $("#subStep");
+  if (now && job.step) now.textContent = `${STEP_TEXT[job.step] || job.step}${job.pct ? ` (${Math.round(job.pct * 100)}%)` : ""}`;
+  if (sub) sub.textContent = `Step ${Math.max(idx + 1, 1)} of ${job.steps.length}`;
+}
+
+// ---------- job polling ----------
+function pollJob(id, { onUpdate } = {}) {
+  return new Promise((resolve, reject) => {
+    let since = 0;
+    const tick = async () => {
+      try {
+        const job = await api(`/api/jobs/${id}?since=${since}`);
+        job.logs.forEach(l => addLog(l.msg)); since = job.log_count;
+        onUpdate && onUpdate(job);
+        if (job.status === "done") return resolve(job.result);
+        if (job.status === "error") return reject(new Error(job.error));
+        setTimeout(tick, 1000);
+      } catch (e) { reject(e); }
+    };
+    tick();
+  });
+}
+
+// ---------- config ----------
+async function loadConfig() {
+  CONFIG = await api("/api/config");
+  $("#language").innerHTML = CONFIG.languages.map(l => `<option value="${l.code}">${esc(l.label)}</option>`).join("");
+  $("#maxSec").textContent = CONFIG.max_seconds;
+  if (!$("#style").options.length) $("#style").innerHTML = CONFIG.styles.map(st => `<option value="${st.code}">${esc(st.label)}</option>`).join("");
+  drawVoiceBox();
+  const anyChannel = CONFIG.channels.some(c => c.connected);
+  $("#pills").innerHTML = [
+    ["Gemini", CONFIG.keys.gemini], ["Pexels", CONFIG.keys.pexels],
+    ["YouTube", anyChannel], ["Instagram", CONFIG.instagram],
+  ].map(([n, ok]) => `<span class="pill ${ok ? "ok" : ""}" title="${ok ? "Ready" : "Not set up yet"}">${n}</span>`).join("");
+  drawSetup();
+}
+function drawSetup() {
+  const need = [];
+  if (!CONFIG.keys.gemini) need.push(["gemini", "Gemini key", "https://aistudio.google.com/apikey", "AIza..."]);
+  if (!CONFIG.keys.pexels) need.push(["pexels", "Pexels key", "https://www.pexels.com/api/", "Paste the long key here"]);
+  const box = $("#setupNotice");
+  if (!need.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="setup">
+    <h2>Paste your keys once</h2>
+    <p class="hint">Both are free. Open each link, sign in, copy the key, paste it here. The app remembers them.</p>
+    ${need.map(([id, label, url, ph]) => `
+      <label class="field" for="k-${id}">${label} <a href="${url}" target="_blank" rel="noopener">get it here</a></label>
+      <input type="text" id="k-${id}" placeholder="${ph}" autocomplete="off" spellcheck="false" style="margin-bottom:12px">`).join("")}
+    <button class="btn primary" id="saveKeys">Save keys</button>
+  </div>`;
+  $("#saveKeys").onclick = async e => {
+    const body = {}; need.forEach(([id]) => body[id] = $("#k-" + id).value.trim());
+    if (!Object.values(body).some(Boolean)) return toast("Paste a key first.", true);
+    busy(e.currentTarget, true, "Saving…");
+    try { await api("/api/keys", { json: body }); await loadConfig(); toast("Keys saved. You’re ready."); }
+    catch (err) { toast(err.message, true); busy(e.currentTarget, false); }
+  };
+}
+
+// ---------- tabs ----------
+$$(".tab").forEach(t => t.addEventListener("click", () => {
+  $$(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+  $$(".view").forEach(v => v.hidden = v.id !== "view-" + t.dataset.view);
+  if (t.dataset.view === "library") loadLibrary();
+}));
+
+// ---------- create flow ----------
+function updateScriptMeta() {
+  const text = $("#script").value.trim();
+  const lines = text ? text.split(/(?<=[.!?।])\s+/).filter(s => s.trim()).length : 0;
+  const words = text ? text.split(/\s+/).length : 0;
+  $("#scriptMeta").textContent = text ? `${lines} scenes, roughly ${Math.round(words / 2.5)} seconds spoken` : "";
+}
+$("#script").addEventListener("input", updateScriptMeta);
+
+async function writeScript(btn) {
+  const topic = $("#topic").value.trim();
+  if (!topic) { $("#topic").focus(); return toast("Type a topic first.", true); }
+  busy(btn, true, "Writing…");
+  screenMessage("Gemini is writing", topic, "Usually takes 5 to 20 seconds.");
+  try {
+    const { script } = await api("/api/script", { json: { topic, language: $("#language").value } });
+    $("#script").value = script; updateScriptMeta();
+    setStep("step1", "done"); setStep("step2", "active");
+    screenMessage("Script ready", topic, "Read it on the left, edit anything, then build the video.");
+    $("#script").focus();
+  } catch (e) { toast(e.message, true); screenMessage("", "That didn’t work.", e.message); }
+  finally { busy(btn, false); }
+}
+$("#writeBtn").addEventListener("click", e => writeScript(e.currentTarget));
+$("#rewriteBtn").addEventListener("click", e => writeScript(e.currentTarget));
+$("#topic").addEventListener("keydown", e => { if (e.key === "Enter") writeScript($("#writeBtn")); });
+
+$("#buildBtn").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  const topic = $("#topic").value.trim(), script = $("#script").value.trim();
+  if (!topic || !script) return toast("A topic and a script are both needed.", true);
+  busy(btn, true, "Building…"); $("#log").innerHTML = "";
+  setStep("step3", "locked"); $("#publishArea").innerHTML = "";
+  screenCaptions(script.split(/(?<=[.!?।])\s+/).filter(Boolean));
+  try {
+    const { job } = await api("/api/build", { json: { topic, script, language: $("#language").value, gender: $("input[name=gender]:checked").value, style: $("#style").value } });
+    const result = await pollJob(job, { onUpdate: drawSegments });
+    setStep("step2", "done"); setStep("step3", "active");
+    showReview(result, $("#publishArea"));
+    toast("Video ready. Watch it before publishing.");
+  } catch (err) {
+    toast(err.message, true); clearInterval(screenCaptions._t); $("#segments").hidden = true;
+    screenMessage("", "The build stopped.", err.message);
+  } finally { busy(btn, false); }
+});
+
+// ---------- review + publish ----------
+function showReview(result, container) {
+  currentVideo = result.video;
+  screenVideo(result.video);
+  const node = $("#publishTpl").content.cloneNode(true);
+  const root = node.querySelector(".publish");
+  container.innerHTML = ""; container.append(node);
+
+  $(".p-title", root).value = result.title || "";
+  $(".p-desc", root).value = result.description || "";
+  $(".p-download", root).href = `/media/${encodeURIComponent(result.video)}`;
+
+  // hashtags
+  const chips = $(".p-chips", root), chipInput = $("input", chips);
+  let tags = [...(result.hashtags || [])];
+  const drawChips = () => {
+    $$(".chip", chips).forEach(c => c.remove());
+    tags.forEach((t, i) => {
+      const c = document.createElement("span"); c.className = "chip";
+      c.innerHTML = `#${esc(t)}<button type="button" aria-label="Remove ${esc(t)}">×</button>`;
+      c.querySelector("button").onclick = () => { tags.splice(i, 1); drawChips(); };
+      chips.insertBefore(c, chipInput);
+    });
+  };
+  chipInput.addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === ",") && chipInput.value.trim()) {
+      e.preventDefault();
+      chipInput.value.split(/[,\s]+/).map(s => s.replace(/^#/, "")).filter(Boolean).forEach(t => { if (!tags.includes(t)) tags.push(t); });
+      chipInput.value = ""; drawChips();
+    } else if (e.key === "Backspace" && !chipInput.value && tags.length) { tags.pop(); drawChips(); }
+  });
+  drawChips();
+
+  // description + hashtags written from the title
+  const descBox = $(".p-desc", root), titleBox = $(".p-title", root), autoBtn = $(".p-autodesc", root);
+  let descTouched = false, lastAutoTitle = titleBox.value.trim();
+  descBox.addEventListener("input", () => descTouched = true);
+  const autoDescribe = async (manual) => {
+    const title = titleBox.value.trim();
+    if (!title) { if (manual) toast("Write a title first.", true); return; }
+    busy(autoBtn, true, "Writing…");
+    try {
+      const r = await api("/api/describe", { json: { title, language: $("#language").value, context: $("#script").value } });
+      descBox.value = r.description; descTouched = false; lastAutoTitle = title;
+      tags = r.hashtags; drawChips();
+      if (manual) toast("Description and hashtags written.");
+    } catch (err) { if (manual) toast(err.message, true); }
+    finally { busy(autoBtn, false); }
+  };
+  autoBtn.addEventListener("click", () => autoDescribe(true));
+  let titleTimer;
+  titleBox.addEventListener("input", () => {
+    clearTimeout(titleTimer);
+    titleTimer = setTimeout(() => {
+      if (!descTouched && titleBox.value.trim() && titleBox.value.trim() !== lastAutoTitle) autoDescribe(false);
+    }, 1500);
+  });
+  if (!descBox.value && titleBox.value.trim()) autoDescribe(false);
+
+  // youtube
+  let channel = (CONFIG.channels.find(c => c.connected) || CONFIG.channels[0] || {}).key;
+  const drawChannels = () => {
+    $(".p-channels", root).innerHTML = CONFIG.channels.map(c => `
+      <div class="channel ${c.key === channel ? "selected" : ""}" data-key="${c.key}" role="radio" aria-checked="${c.key === channel}" tabindex="0">
+        <div><strong>${esc(c.label)}</strong><small class="${c.connected ? "on" : ""}">${c.connected ? "Connected" : "Not connected yet"}</small></div>
+        ${c.connected ? "" : `<button class="btn small ghost" data-connect="${c.key}">Connect</button>`}
+      </div>`).join("");
+    $$(".channel", root).forEach(el => {
+      const pick = () => { channel = el.dataset.key; drawChannels(); };
+      el.addEventListener("click", ev => { if (!ev.target.dataset.connect) pick(); });
+      el.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(); } });
+    });
+    $$("[data-connect]", root).forEach(b => b.addEventListener("click", async ev => {
+      ev.stopPropagation(); busy(b, true, "Sign in…");
+      toast("A Google sign-in window is opening on this computer.");
+      try {
+        const { job } = await api(`/api/channels/${b.dataset.connect}/connect`, { method: "POST" });
+        const r = await pollJob(job); CONFIG.channels = r.channels; channel = b.dataset.connect;
+        drawChannels(); loadConfig(); toast("Channel connected.");
+      } catch (err) { toast(err.message, true); busy(b, false); }
+    }));
+  };
+  drawChannels();
+  const priv = $(".p-privacy", root), uid = Math.random().toString(36).slice(2, 7);
+  priv.innerHTML = [["private", "Only me"], ["unlisted", "Anyone with the link"], ["public", "Everyone"]]
+    .map(([v, l], i) => `<input type="radio" name="priv-${uid}" id="p-${uid}-${v}" value="${v}" ${i === 0 ? "checked" : ""}><label for="p-${uid}-${v}">${l}</label>`).join("");
+  $(".p-sched-on", root).addEventListener("change", e => $(".p-sched", root).hidden = !e.target.checked);
+  const ytToggle = $(".p-yt", root);
+  ytToggle.addEventListener("change", () => $(".p-yt-body", root).hidden = !ytToggle.checked);
+  if (!CONFIG.youtube_ready) {
+    $(".p-yt-body", root).innerHTML = `<div class="notice">Put <code>client_secret.json</code> in the project folder to post to YouTube.</div>`;
+  }
+
+  // instagram
+  const igToggle = $(".p-ig", root);
+  if (CONFIG.instagram) $(".p-ig-keys", root).hidden = true;
+  if (!CONFIG.instagram) {
+    igToggle.disabled = true; $(".p-ig-off", root).hidden = false;
+    $(".p-ig-save", root).onclick = async () => {
+      try {
+        const r = await api("/api/keys", { json: { ig_user_id: $(".p-ig-uid", root).value, ig_token: $(".p-ig-tok", root).value } });
+        CONFIG.instagram = r.instagram;
+        if (r.instagram) { igToggle.disabled = false; $(".p-ig-off", root).hidden = true; $(".p-ig-keys", root).hidden = true; toast("Instagram is on."); loadConfig(); }
+        else toast("Both the user ID and the token are needed.", true);
+      } catch (err) { toast(err.message, true); }
+    };
+  }
+  igToggle.addEventListener("change", () => $(".p-ig-body", root).hidden = !igToggle.checked);
+
+  // publish
+  $(".p-publish", root).addEventListener("click", async ev => {
+    const btn = ev.currentTarget;
+    const yt = ytToggle.checked, ig = igToggle.checked;
+    if (!yt && !ig) return toast("Turn on YouTube, Instagram, or both.", true);
+    if (ig && !$(".p-ig-confirm", root).checked) return toast("Tick the Instagram confirmation box first.", true);
+    const privacy = $("input:checked", priv)?.value || "private";
+    let publishAt = "";
+    if (yt && $(".p-sched-on", root).checked) {
+      const when = new Date($(".p-sched-at", root).value);
+      if (isNaN(when)) return toast("Pick a date and time for the schedule.", true);
+      if (when < new Date(Date.now() + 15 * 60 * 1000)) return toast("Pick a time at least 15 minutes from now.", true);
+      publishAt = when.toISOString().replace(/\.\d{3}Z$/, "Z");
+    }
+    if (yt && !publishAt && privacy === "public" && !confirm("Post this publicly on YouTube now?")) return;
+    busy(btn, true, "Publishing…");
+    const results = $(".p-results", root); results.innerHTML = "";
+    $("#segments").hidden = true;
+    try {
+      const { job } = await api("/api/publish", { json: {
+        video: result.video, title: $(".p-title", root).value, description: $(".p-desc", root).value, tags,
+        youtube: { enabled: yt, channel, privacy, publish_at: publishAt }, instagram: { enabled: ig, confirmed: ig },
+      }});
+      const r = await pollJob(job);
+      const L = r.links;
+      results.innerHTML = [
+        L.youtube && `<a class="result-link" href="${esc(L.youtube)}" target="_blank" rel="noopener"><span class="logo yt"></span>${esc(L.youtube)}</a>`,
+        L.instagram && `<a class="result-link" href="${esc(L.instagram)}" target="_blank" rel="noopener"><span class="logo ig"></span>${esc(L.instagram)}</a>`,
+        L.instagram_error && `<div class="result-link err">Instagram: ${esc(L.instagram_error)}</div>`,
+      ].filter(Boolean).join("");
+      toast("Published.");
+    } catch (err) { toast(err.message, true); results.innerHTML = `<div class="result-link err">${esc(err.message)}</div>`; }
+    finally { busy(btn, false); }
+  });
+}
+
+// ---------- style note ----------
+$("#style").addEventListener("change", () => $("#styleNote").hidden = $("#style").value === "footage");
+
+// ---------- my voice ----------
+$$("input[name=gender]").forEach(r => r.addEventListener("change", drawVoiceBox));
+let recorder = null, recChunks = [], recTimer = null;
+function drawVoiceBox() {
+  const box = $("#voiceBox");
+  if (!CONFIG || !$("#gMine").checked) { box.hidden = true; return; }
+  box.hidden = false;
+  const vc = CONFIG.voice_clone;
+  const langNote = `<p class="meta" style="margin:0">Works for English and Hindi. Other languages use the standard voice.</p>`;
+  if (!vc.installed) {
+    box.innerHTML = `<strong>Your voice needs a one-time install</strong>
+      <p class="meta" style="margin:0">Close the app, run this in PowerShell inside the project folder, then start the app again. It downloads about 3 GB in total, and builds are slower on a laptop without an NVIDIA graphics card.</p>
+      <code style="background:var(--night);padding:8px 10px;border-radius:8px">python -m pip install --user chatterbox-tts</code>${langNote}`;
+    return;
+  }
+  box.innerHTML = `<strong>${vc.sample ? "Your voice sample is saved" : "Record about 15 seconds of your voice"}</strong>
+    <p class="meta" style="margin:0">Read anything aloud in a quiet room, at your normal speed. Clear audio gives a closer match.</p>
+    ${vc.sample ? `<audio controls src="/api/voice-sample?t=${Date.now()}"></audio>` : ""}
+    <div class="row">
+      <button class="btn small primary" id="recBtn">${vc.sample ? "Record again" : "Start recording"}</button>
+      <label class="btn small ghost" style="cursor:pointer">Upload a recording<input type="file" accept="audio/*,video/*" id="voiceFile" hidden></label>
+      <span class="meta" id="recStatus" style="margin:0"></span>
+    </div>${langNote}`;
+  $("#recBtn").onclick = toggleRecording;
+  $("#voiceFile").onchange = e => e.target.files[0] && sendVoice(e.target.files[0], e.target.files[0].name);
+}
+async function toggleRecording() {
+  const btn = $("#recBtn"), status = $("#recStatus");
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recChunks = []; recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => recChunks.push(e.data);
+    recorder.onstop = () => {
+      clearInterval(recTimer); stream.getTracks().forEach(t => t.stop());
+      sendVoice(new Blob(recChunks, { type: recorder.mimeType || "audio/webm" }), "recording.webm");
+    };
+    recorder.start();
+    let sec = 0; btn.textContent = "Stop and save";
+    status.innerHTML = `<span style="display:inline-flex;gap:6px;align-items:center"><span class="rec-dot"></span>Recording 0s</span>`;
+    recTimer = setInterval(() => {
+      sec++; status.innerHTML = `<span style="display:inline-flex;gap:6px;align-items:center"><span class="rec-dot"></span>Recording ${sec}s</span>`;
+      if (sec >= 20) recorder.stop();
+    }, 1000);
+  } catch { toast("Microphone access was blocked. Allow it in the browser’s address bar, or upload a recording.", true); }
+}
+async function sendVoice(blob, name) {
+  $("#recStatus") && ($("#recStatus").textContent = "Saving…");
+  const fd = new FormData(); fd.append("file", blob, name);
+  try { const r = await api("/api/voice-sample", { method: "POST", body: fd }); CONFIG.voice_clone = r.voice_clone; drawVoiceBox(); toast("Voice sample saved."); }
+  catch (err) { toast(err.message, true); $("#recStatus") && ($("#recStatus").textContent = ""); }
+}
+
+// ---------- own video ----------
+let pickedFile = null;
+const drop = $("#drop"), fileInput = $("#fileInput");
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => pickFile(e.dataTransfer.files[0]));
+fileInput.addEventListener("change", () => pickFile(fileInput.files[0]));
+function pickFile(f) {
+  if (!f) return;
+  if (!f.type.startsWith("video/")) return toast("That isn’t a video file.", true);
+  pickedFile = f;
+  $("#dropTitle").textContent = f.name;
+  $("#dropSub").textContent = `${(f.size / 1048576).toFixed(1)} MB, click to choose a different file`;
+  $("#reframeBtn").disabled = false;
+}
+$("#reframeBtn").addEventListener("click", async e => {
+  if (!pickedFile) return;
+  const btn = e.currentTarget; busy(btn, true, "Uploading…"); $("#log").innerHTML = "";
+  setStep("ownStep2", "locked"); $("#ownPublishArea").innerHTML = "";
+  screenMessage("Converting", pickedFile.name, "Cropping to 9:16 and re-encoding.");
+  $("#screenMsg").insertAdjacentHTML("afterbegin", `<div class="now" id="nowStep"></div>`); $("#screenMsg").insertAdjacentHTML("beforeend", `<div class="sub" id="subStep"></div>`);
+  try {
+    const fd = new FormData(); fd.append("file", pickedFile); fd.append("trim", $("#trim").checked);
+    const { job } = await api("/api/reframe", { method: "POST", body: fd });
+    btn.innerHTML = `<span class="spin"></span>Converting…`;
+    const result = await pollJob(job, { onUpdate: drawSegments });
+    setStep("ownStep1", "done"); setStep("ownStep2", "active");
+    showReview(result, $("#ownPublishArea"));
+    toast("Video ready. Watch it before publishing.");
+  } catch (err) { toast(err.message, true); $("#segments").hidden = true; screenMessage("", "The conversion stopped.", err.message); }
+  finally { busy(btn, false); }
+});
+
+// ---------- library ----------
+async function loadLibrary() {
+  const lib = $("#library");
+  try {
+    const { videos } = await api("/api/videos");
+    if (!videos.length) { lib.innerHTML = `<p class="empty">No videos yet. Make one in “Make a new Short”.</p>`; return; }
+    lib.innerHTML = videos.map(v => `
+      <div class="lib-item">
+        <video src="/media/${encodeURIComponent(v.name)}#t=0.5" preload="metadata" muted></video>
+        <div class="info">
+          <div class="name" title="${esc(v.name)}">${esc(v.name)}</div>
+          <div class="meta" style="margin-top:2px">${new Date(v.modified * 1000).toLocaleString()}, ${(v.size / 1048576).toFixed(1)} MB</div>
+          <div class="actions">
+            <button class="btn small primary" data-open="${esc(v.name)}">Open</button>
+            <button class="btn small danger" data-del="${esc(v.name)}" aria-label="Delete ${esc(v.name)}">Delete</button>
+          </div>
+        </div>
+      </div>`).join("");
+    $$("[data-open]", lib).forEach(b => b.onclick = () => {
+      const name = b.dataset.open;
+      const title = name.replace(/\.mp4$/, "").replace(/_\d{8}_\d{6}$/, "").replace(/_short$/, "").replace(/_/g, " ");
+      $$(".tab")[1].click();
+      setStep("ownStep1", "done"); setStep("ownStep2", "active");
+      showReview({ video: name, title, hashtags: ["shorts"] }, $("#ownPublishArea"));
+    });
+    $$("[data-del]", lib).forEach(b => b.onclick = async () => {
+      if (!confirm(`Delete ${b.dataset.del} from your computer?`)) return;
+      try { await api(`/api/videos/${encodeURIComponent(b.dataset.del)}`, { method: "DELETE" }); loadLibrary(); toast("Deleted."); }
+      catch (err) { toast(err.message, true); }
+    });
+  } catch (err) { lib.innerHTML = `<p class="empty">${esc(err.message)}</p>`; }
+}
+
+loadConfig().catch(e => toast(e.message, true));
+</script>
+</body>
+</html>
