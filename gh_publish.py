@@ -42,7 +42,7 @@ if want_youtube:
     publish_at = (os.environ.get("PUBLISH_AT") or "").strip() or None
     yt_common.upload_short(video, title, "\n\n".join(p for p in (description, hashtag_line) if p), tags,
                            os.environ.get("PRIVACY", "private"), os.environ.get("CHANNEL", "S"),
-                           log=quiet, publish_at=publish_at)
+                           log=quiet, publish_at=publish_at, shorts=res.get("format", "reel") != "video")
     print("YouTube: uploaded" + (f", scheduled for {publish_at}" if publish_at else "") + ". See YouTube Studio.")
 
 if want_instagram:

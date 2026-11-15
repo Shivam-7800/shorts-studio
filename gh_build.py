@@ -28,6 +28,31 @@ style = os.environ.get("STYLE") or "footage"
 script = (os.environ.get("SCRIPT") or "").strip()
 title = (os.environ.get("TITLE") or "").strip()
 
+# Photo → Video: the website uploaded in/photo.* + in/sound.* + in/options.json
+options_file = Path("in/options.json")
+if options_file.exists():
+    opts = json.loads(options_file.read_text(encoding="utf-8"))
+    if opts.get("kind") == "photo":
+        photo = next(Path("in").glob("photo.*"))
+        sound = next(Path("in").glob("sound.*"))
+        result = pipeline.photo_video(photo, sound, opts.get("format", "reel"), opts.get("effect", "cinematic"),
+                                      log=print)
+        result["title"] = title or topic
+        try:
+            meta = pipeline.describe_from_title(result["title"], language, log=print) if title else {}
+        except Exception:
+            meta = {}
+        result["description"] = meta.get("description", "")
+        result["hashtags"] = meta.get("hashtags") or ["reels", "video", "viral"]
+        out = Path("out")
+        out.mkdir(exist_ok=True)
+        shutil.copy(pipeline.VIDEOS_DIR / result["video"], out / "short.mp4")
+        result.update(video="short.mp4", topic=topic, language=language)
+        (out / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        summary = {k: result.get(k) for k in ("title", "description", "hashtags", "duration", "format")}
+        print("::notice title=result::" + base64.b64encode(json.dumps(summary, ensure_ascii=False).encode("utf-8")).decode("ascii"))
+        raise SystemExit(0)
+
 if voice == "mine":
     import tempfile
     import voice_clone

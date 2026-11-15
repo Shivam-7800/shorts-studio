@@ -90,12 +90,12 @@ def fit_vertical(clip):
 
 
 def upload_short(video_path, title, description, tags, privacy_status, channel_key,
-                 log=print, on_progress=None, publish_at=None):
+                 log=print, on_progress=None, publish_at=None, shorts=True):
     """Uploads video_path as a Short and returns its YouTube link."""
     info = CHANNELS[channel_key]
     log(f"Uploading to {info['label']} as {privacy_status}")
 
-    if "#shorts" not in description.lower():
+    if shorts and "#shorts" not in description.lower():
         description = f"{description}\n#Shorts".strip()
 
     youtube = get_youtube_service(channel_key, log=log)

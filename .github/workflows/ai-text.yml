@@ -26,6 +26,10 @@ on:
         description: "Script (describe) or pasted transcript (remake/react)"
         required: false
         type: string
+      upload_id:
+        description: "Used by the website for uploaded files. Leave empty."
+        required: false
+        type: string
       request_id:
         description: "Used by the website. Leave empty."
         required: false
@@ -38,13 +42,28 @@ jobs:
   write:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Get uploaded files
+        if: inputs.upload_id != ''
+        env:
+          UPLOAD_ID: ${{ inputs.upload_id }}
+        run: |
+          [[ "$UPLOAD_ID" =~ ^[a-z0-9]{6,24}$ ]] || { echo "::error title=Why it stopped::Bad upload id"; exit 1; }
+          git fetch -q --depth 1 origin uploads || { echo "::error title=Why it stopped::The uploaded files weren't found. Upload again."; exit 1; }
+          mkdir -p in
+          git archive FETCH_HEAD "uploads/$UPLOAD_ID" | tar -x -C in --strip-components=2
+          ls -la in
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install google-genai requests google-auth google-auth-oauthlib google-api-python-client
+      - name: Install audio reader
+        if: inputs.upload_id != ''
+        run: pip install av numpy
       - name: Install transcription tools
         if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != ''
         run: pip install youtube-transcript-api yt-dlp faster-whisper imageio-ffmpeg
@@ -64,3 +83,15 @@ jobs:
           CONTEXT: ${{ inputs.context }}
           URL: ${{ inputs.url }}
         run: python gh_ai.py
+      - name: Delete uploaded files
+        if: always() && inputs.upload_id != ''
+        env:
+          UPLOAD_ID: ${{ inputs.upload_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch -q --depth 1 origin uploads || exit 0
+          rm -rf /tmp/u && mkdir -p /tmp/u && git archive FETCH_HEAD | tar -x -C /tmp/u
+          rm -rf "/tmp/u/uploads/$UPLOAD_ID"
+          cd /tmp/u && git init -q -b uploads && git add -A
+          git -c user.name=shorts-studio-bot -c user.email=bot@users.noreply.github.com commit -q --allow-empty -m uploads
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" uploads

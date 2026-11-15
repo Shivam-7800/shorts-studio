@@ -29,6 +29,12 @@ def main():
         send("describe", pipeline.describe_from_title(os.environ["TITLE"].strip(), language,
                                                       os.environ.get("CONTEXT", ""), log=print))
     else:  # remake / react
+        from pathlib import Path
+        uploaded = [f for f in Path("in").glob("media.*")] if Path("in").exists() else []
+        if uploaded:
+            send("script", pipeline.rewrite_from_audio(uploaded[0], mode, language, log=print))
+            print("Done.")
+            return
         transcript = (os.environ.get("CONTEXT") or "").strip()
         if not transcript:
             url = (os.environ.get("URL") or "").strip()

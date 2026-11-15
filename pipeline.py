@@ -269,6 +269,41 @@ Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", 
     return {"topic": str(data.get("topic") or "").strip(), "script": script}
 
 
+def rewrite_from_audio(media_path, mode, language_code, log=_noop):
+    """Same as rewrite_from_transcript, but Gemini listens to the sound of an
+    uploaded video directly (no separate transcription step)."""
+    import io
+    import wave
+    import numpy as np
+    import transcribe
+    from google.genai import types
+    log("Reading the sound from your file")
+    audio = transcribe._decode_pyav(media_path)[: 16000 * 8 * 60]  # first 8 minutes
+    if audio.size < 16000:
+        raise RuntimeError("The file has no sound to listen to.")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    language_name = LANGUAGES[language_code]["label"]
+    what = ("a REACTION / COMMENTARY script spoken by me, responding to what's said in it: what's interesting, "
+            "what's missing or doubtful, extra context and my own opinion. Call it \"a video I saw\"; quote at most 5 words."
+            if mode == "react" else
+            "a NEW, ORIGINAL script on the same topic. Don't copy its sentences, structure or phrases; use your own "
+            "hook, order and wording, and add at least one extra fact or angle.")
+    prompt = f"""Listen to the attached audio from someone else's video. Write {what}
+Language: natural spoken {language_name}. Short sentences, strong hook first, 30-45 seconds read aloud,
+end with a call to action, no headings or markdown.
+Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", "script": "<the script>"}}"""
+    log("Gemini is listening and writing your version")
+    parts = [types.Part.from_bytes(data=buf.getvalue(), mime_type="audio/wav"), prompt]
+    data = json.loads(_strip_fences(call_gemini_with_retry(parts, log).text))
+    script = str(data.get("script") or "").strip()
+    if not script:
+        raise RuntimeError("Gemini returned an empty script. Try again.")
+    return {"topic": str(data.get("topic") or "").strip(), "script": script}
+
+
 # =========================================
 # VOICE (edge-tts)
 # =========================================
@@ -433,19 +468,19 @@ def _render_logger(on_pct):
     return _Logger()
 
 
-def _write(clip, out_path, on_pct):
+def _write(clip, out_path, on_pct, fps=24, high_quality=False):
     # H.264 + AAC + yuv420p + faststart: plays in every browser and meets
     # Instagram's Reels requirements (Instagram rejects MP3 audio).
     clip.write_videofile(
         str(out_path),
-        fps=24,
+        fps=fps,
         codec="libx264",
         audio_codec="aac",
         temp_audiofile=str(out_path.with_suffix(".temp-audio.m4a")),
         remove_temp=True,
         preset="ultrafast" if _LOW else "veryfast",  # faster encode, small size cost
         threads=1 if _LOW else (os.cpu_count() or 4),
-        ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"],
+        ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"] + (["-crf", "18"] if high_quality else []),
         logger=_render_logger(on_pct),
     )
 
@@ -578,6 +613,120 @@ def build_video(job_id, topic, language_code, gender, script, style="footage",
         "queries": queries,
         "duration": round(float(duration), 1),
     }
+
+
+# =========================================
+# PHOTO → VIDEO
+# =========================================
+
+PHOTO_FORMATS = {"reel": (1080, 1920), "video": (1920, 1080), "square": (1080, 1080)}
+PHOTO_EFFECTS = {
+    # zoom start/end, beat zoom, beat flash, sway, light sweep, glow
+    "cinematic": dict(z0=1.0, z1=1.18, beat=0.015, flash=0.0, sway=0.15, sweep=True, glow=0.0),
+    "pulse": dict(z0=1.04, z1=1.12, beat=0.05, flash=0.10, sway=0.35, sweep=False, glow=0.0),
+    "dreamy": dict(z0=1.0, z1=1.10, beat=0.01, flash=0.0, sway=0.5, sweep=False, glow=0.35),
+}
+
+
+def _beat_envelope(sound_path, duration, fps):
+    """0..1 per video frame, high where the sound hits (beats, loud words)."""
+    import numpy as np
+    n = int(duration * fps) + 2
+    try:
+        import transcribe
+        audio = transcribe._decode_pyav(sound_path)
+    except Exception:
+        return np.zeros(n, dtype=np.float32)
+    hop = max(16000 // fps, 1)
+    frames = len(audio) // hop
+    if frames < 2:
+        return np.zeros(n, dtype=np.float32)
+    rms = np.sqrt((audio[: frames * hop].reshape(frames, hop) ** 2).mean(axis=1))
+    rms /= (np.percentile(rms, 95) + 1e-6)
+    k = 15
+    avg = np.convolve(rms, np.ones(k) / k, mode="same")
+    onset = np.clip(rms - avg, 0, None)
+    onset /= (onset.max() + 1e-6)
+    env = np.zeros_like(onset)  # quick rise, slow fall
+    for i in range(len(onset)):
+        env[i] = max(onset[i], (env[i - 1] * 0.82) if i else 0)
+    out = np.zeros(n, dtype=np.float32)
+    out[: min(n, len(env))] = env[:n]
+    return out
+
+
+def photo_video(photo_path, sound_path, fmt="reel", effect="cinematic", log=_noop, pct=_noop):
+    """Turns one photo + a sound into a moving 1080p video: slow camera move,
+    beat-synced pulses, light sweep or glow, vignette and fades."""
+    import math
+    import numpy as np
+    from PIL import Image, ImageFilter, ImageOps
+    from moviepy import AudioFileClip, VideoClip
+
+    W, H = PHOTO_FORMATS.get(fmt, PHOTO_FORMATS["reel"])
+    fx = PHOTO_EFFECTS.get(effect, PHOTO_EFFECTS["cinematic"])
+    fps = 30
+
+    audio = AudioFileClip(str(sound_path))
+    duration = min(audio.duration, float(SHORTS_MAX_SECONDS))
+    audio = audio.subclipped(0, duration)
+    log(f"Sound is {duration:.0f} seconds")
+    env = _beat_envelope(sound_path, duration, fps)
+
+    # Canvas a bit bigger than the frame, so the camera has room to move.
+    S = 1.3
+    cw, ch = int(W * S), int(H * S)
+    img = ImageOps.exif_transpose(Image.open(photo_path)).convert("RGB")
+    img_ratio, target_ratio = img.width / img.height, W / H
+    if abs(img_ratio - target_ratio) / target_ratio < 0.2:
+        canvas = ImageOps.fit(img, (cw, ch), Image.LANCZOS)
+    else:  # different shape: blurred copy behind, whole photo on top
+        canvas = ImageOps.fit(img, (cw, ch), Image.LANCZOS).filter(ImageFilter.GaussianBlur(45))
+        canvas = Image.blend(canvas, Image.new("RGB", canvas.size, (0, 0, 0)), 0.35)
+        fg = ImageOps.contain(img, (int(cw * 0.86), int(ch * 0.86)), Image.LANCZOS)
+        canvas.paste(fg, ((cw - fg.width) // 2, (ch - fg.height) // 2))
+    glow_canvas = canvas.filter(ImageFilter.GaussianBlur(14)) if fx["glow"] else None
+
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    r2 = ((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2
+    vignette = np.clip(1 - 0.28 * r2, 0.55, 1)[..., None].astype(np.float32)
+    diag = (xx / W + yy / H * 0.6) / 1.6 if fx["sweep"] else None
+
+    def frame(t):
+        i = min(int(t * fps), len(env) - 1)
+        p = t / max(duration, 0.01)
+        ease = 0.5 - 0.5 * math.cos(math.pi * p)
+        z = fx["z0"] + (fx["z1"] - fx["z0"]) * ease + fx["beat"] * env[i]
+        rw, rh = cw / (S * z) * 1.0, ch / (S * z) * 1.0
+        mx, my = (cw - rw) / 2, (ch - rh) / 2
+        px = -0.6 + 1.2 * ease + fx["sway"] * 0.25 * math.sin(t * 0.7)
+        py = 0.3 - 0.6 * ease + fx["sway"] * 0.25 * math.cos(t * 0.53)
+        x0 = mx + mx * max(-1, min(1, px))
+        y0 = my + my * max(-1, min(1, py))
+        box = (x0, y0, x0 + rw, y0 + rh)
+        arr = np.asarray(canvas.resize((W, H), Image.BILINEAR, box=box), dtype=np.float32)
+        if glow_canvas is not None:
+            g = np.asarray(glow_canvas.resize((W, H), Image.BILINEAR, box=box), dtype=np.float32)
+            arr = 255 - (255 - arr) * (255 - g * fx["glow"]) / 255  # soft screen blend
+        if fx["flash"]:
+            arr = arr * (1 + fx["flash"] * env[i])
+        if diag is not None:
+            cycle = (t % 6.0) / 6.0 * 1.8 - 0.4  # a soft light band crosses every 6 s
+            band = np.exp(-((diag - cycle) / 0.08) ** 2)
+            arr = arr + band[..., None] * 38
+        arr = arr * vignette
+        fade = min(1.0, t / 0.6, (duration - t) / 0.8)
+        if fade < 1:
+            arr = arr * max(fade, 0)
+        return np.clip(arr, 0, 255).astype(np.uint8)
+
+    clip = VideoClip(frame, duration=duration).with_audio(audio)
+    clip = _add_logo(clip, log)
+    out = VIDEOS_DIR / f"photo_{fmt}_{datetime.now():%Y%m%d_%H%M%S}.mp4"
+    log(f"Rendering {W}×{H} video")
+    _write(clip, out, pct, fps=fps, high_quality=True)
+    audio.close()
+    return {"video": out.name, "duration": round(float(duration), 1), "format": fmt}
 
 
 def reframe_existing(source_path, original_name, trim, log=_noop, step=_noop, pct=_noop):
