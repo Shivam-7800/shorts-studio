@@ -42,27 +42,65 @@ def _download(url, log):
             "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration < 1200")}
     log("Downloading the audio")
     with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        return ydl.prepare_filename(info)
+        ydl.extract_info(url, download=True)
+    # Use whatever file actually landed (the extension isn't always predictable).
+    files = sorted((f for f in tmp.iterdir() if f.is_file() and f.stat().st_size > 0),
+                   key=lambda f: f.stat().st_size, reverse=True)
+    if not files:
+        raise RuntimeError("the download finished but no file was saved")
+    return files[0]
+
+
+def _decode_pyav(path):
+    """Reads the audio straight from the file in Python (no external program)."""
+    import av
+    import numpy as np
+    chunks = []
+    with av.open(str(path)) as container:
+        if not container.streams.audio:
+            raise RuntimeError("the video has no audio track")
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+        for frame in container.decode(audio=0):
+            for out in resampler.resample(frame):
+                chunks.append(out.to_ndarray().reshape(-1))
+        for out in resampler.resample(None):
+            chunks.append(out.to_ndarray().reshape(-1))
+    if not chunks:
+        return np.zeros(0, dtype=np.float32)
+    return np.concatenate(chunks).astype(np.float32) / 32768.0
+
+
+def _decode_ffmpeg(path):
+    import subprocess
+    import numpy as np
+    r = subprocess.run([_ffmpeg(), "-nostdin", "-loglevel", "error", "-i", str(path),
+                        "-f", "s16le", "-ac", "1", "-ar", "16000", "-"], capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr.decode(errors="ignore").strip().splitlines() or ["ffmpeg failed"])[-1])
+    return np.frombuffer(r.stdout, np.int16).astype(np.float32) / 32768.0
 
 
 def _transcribe_file(path, log, model_size="small"):
-    """Decodes audio with ffmpeg ourselves (16 kHz mono) and gives Whisper the
-    raw samples. This avoids faster-whisper's own decoder, which breaks with
-    newer versions of the PyAV library."""
-    import subprocess
-    import numpy as np
+    """Decodes the audio to 16 kHz mono ourselves and hands Whisper the raw
+    samples (faster-whisper's own decoder breaks with newer PyAV versions).
+    Tries Python-only decoding first, then ffmpeg."""
     from faster_whisper import WhisperModel
-    raw = subprocess.run([_ffmpeg(), "-nostdin", "-loglevel", "error", "-i", str(path),
-                          "-f", "s16le", "-ac", "1", "-ar", "16000", "-"],
-                         capture_output=True, check=True).stdout
-    audio = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
-    if audio.size < 16000:
+    problems = []
+    audio = None
+    for decode in (_decode_pyav, _decode_ffmpeg):
+        try:
+            audio = decode(path)
+            break
+        except Exception as e:
+            problems.append(f"{decode.__name__[8:]}: {str(e)[:150]}")
+    if audio is None:
+        raise RuntimeError("couldn’t read the audio (" + "; ".join(problems) + ")")
+    if audio.size < 16000:  # under one second
         return ""
     log("Transcribing (a few minutes on a normal computer)")
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
     segments, _ = model.transcribe(audio, vad_filter=True)
-    return " ".join(s.text.strip() for s in segments)
+    return " ".join(seg.text.strip() for seg in segments)
 
 
 def _site(url):
