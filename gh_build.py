@@ -1,5 +1,17 @@
 """Runs inside GitHub Actions: writes the script (unless one is given), builds
 the video and saves out/short.mp4 + out/result.json as the run's artifact."""
+import sys as _sys
+
+
+def _report(exc_type, exc, tb):
+    import traceback
+    traceback.print_exception(exc_type, exc, tb)
+    msg = str(exc) if str(exc) else exc_type.__name__
+    print("::error title=Why it stopped::" + msg.replace("\r", "").replace("\n", " "))
+
+
+_sys.excepthook = _report
+
 import base64
 import json
 import os
@@ -21,7 +33,8 @@ if voice == "mine":
     import voice_clone
     sample_b64 = os.environ.get("VOICE_SAMPLE_B64", "").strip()
     if not sample_b64:
-        raise SystemExit("“My voice” needs the VOICE_SAMPLE_B64 secret. Run make_voice_secret.py on your PC (see README).")
+        print("::error title=Why it stopped::“My voice” needs the VOICE_SAMPLE_B64 secret. Run make_voice_secret.py on your PC.")
+        raise SystemExit(1)
     with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as f:
         f.write(base64.b64decode(sample_b64))
     voice_clone.save_sample(f.name)

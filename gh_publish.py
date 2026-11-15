@@ -1,5 +1,17 @@
 """Runs inside GitHub Actions: posts a video made by an earlier run to YouTube
 and/or Instagram. Prints no links, because Actions logs on a public repo are public."""
+import sys as _sys
+
+
+def _report(exc_type, exc, tb):
+    import traceback
+    traceback.print_exception(exc_type, exc, tb)
+    msg = str(exc) if str(exc) else exc_type.__name__
+    print("::error title=Why it stopped::" + msg.replace("\r", "").replace("\n", " "))
+
+
+_sys.excepthook = _report
+
 import json
 import os
 from pathlib import Path
@@ -44,4 +56,4 @@ if want_instagram:
             errors.append(f"Instagram failed: {e}")
 
 if errors:
-    raise SystemExit("\n".join(errors))
+    print("::error title=Why it stopped::" + " ".join(errors)); raise SystemExit(1)

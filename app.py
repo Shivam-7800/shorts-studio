@@ -238,6 +238,31 @@ def build():
     return jsonify(job=job.id)
 
 
+@app.post("/api/remake")
+def remake():
+    body = request.get_json(force=True)
+    url = (body.get("url") or "").strip()
+    text = (body.get("transcript") or "").strip()
+    mode = "react" if body.get("mode") == "react" else "remake"
+    language = body.get("language", "hi-IN")
+    if not url and not text:
+        abort(400, description="Paste a video link or its transcript.")
+    if language not in pipeline.LANGUAGES:
+        abort(400, description="Pick a language from the list.")
+
+    def run(j):
+        transcript = text
+        if not transcript:
+            import transcribe
+            j.set_step("transcribe")
+            transcript = transcribe.get_transcript(url, log=j.log)
+        j.set_step("write")
+        return pipeline.rewrite_from_transcript(transcript, mode, language, log=j.log)
+
+    job = start_job("remake", ["transcribe", "write"], run, heavy=False)
+    return jsonify(job=job.id)
+
+
 @app.post("/api/describe")
 def describe():
     body = request.get_json(force=True)

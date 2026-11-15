@@ -551,7 +551,17 @@ async function watch(run, { segments = false } = {}) {
     if ($("#nowStep")) $("#nowStep").textContent = cur ? friendly(cur.name) : job ? "Starting" : "Waiting for a GitHub machine";
     if ($("#subStep")) $("#subStep").textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} elapsed`;
     if (r.status === "completed") {
-      if (r.conclusion !== "success") throw Object.assign(new Error("It stopped on GitHub. Click “Open on GitHub” in the log and look at the red step."), { run: r });
+      if (r.conclusion !== "success") {
+        let why = "";
+        for (const j of jobs.jobs.filter(j => j.conclusion === "failure")) {
+          try {
+            const notes = await gh(`${j.check_run_url}/annotations`);
+            const n = notes.find(n => n.title === "Why it stopped");
+            if (n) { why = n.message; break; }
+          } catch {}
+        }
+        throw Object.assign(new Error(why || "It stopped on GitHub. Click “Open on GitHub” below the phone and look at the red step."), { run: r });
+      }
       return { run: r, job };
     }
     await sleep(4000);

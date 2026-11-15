@@ -256,6 +256,7 @@ code { overflow-wrap: anywhere; }
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" aria-selected="true" data-view="create">Make a new Short</button>
       <button class="tab" role="tab" aria-selected="false" data-view="own">Use my own video</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="remake">Remake / React</button>
       <button class="tab" role="tab" aria-selected="false" data-view="library">Library</button>
     </div>
 
@@ -344,6 +345,33 @@ code { overflow-wrap: anywhere; }
           <h2>Review and publish</h2>
           <p class="hint">Watch it in the preview first. Nothing is posted until you press Publish.</p>
           <div id="ownPublishArea"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REMAKE / REACT ===== -->
+    <div class="view" id="view-remake" hidden>
+      <div class="step active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h2>Start from another video</h2>
+          <p class="hint">The app reads the video’s words, then Gemini writes your own version. It never copies the other creator’s words or footage, because reposted content gets channels flagged on YouTube and Instagram.</p>
+          <label class="field" for="rmUrl">Video link</label>
+          <input type="text" id="rmUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+          <label class="field" for="rmText" style="margin-top:12px">Or paste its transcript</label>
+          <textarea id="rmText" rows="4"></textarea>
+          <div class="row" style="margin-top:14px">
+            <div>
+              <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">What to make</span>
+              <div class="seg" role="radiogroup" aria-label="What to make">
+                <input type="radio" name="rmMode" id="rm1" value="remake" checked><label for="rm1">My own version</label>
+                <input type="radio" name="rmMode" id="rm2" value="react"><label for="rm2">My reaction</label>
+              </div>
+            </div>
+            <div class="grow"><label class="field" for="rmLang">Language</label><select id="rmLang"></select></div>
+          </div>
+          <div class="row" style="margin-top:14px"><button class="btn primary" id="rmBtn">Get my script</button></div>
+          <p class="meta">With subtitles this takes seconds. Without them the app downloads and transcribes the audio, which takes a few minutes on a normal laptop.</p>
         </div>
       </div>
     </div>
@@ -518,6 +546,7 @@ function pollJob(id, { onUpdate } = {}) {
 async function loadConfig() {
   CONFIG = await api("/api/config");
   $("#language").innerHTML = CONFIG.languages.map(l => `<option value="${l.code}">${esc(l.label)}</option>`).join("");
+  $("#rmLang").innerHTML = $("#language").innerHTML;
   $("#maxSec").textContent = CONFIG.max_seconds;
   if (!$("#style").options.length) $("#style").innerHTML = CONFIG.styles.map(st => `<option value="${st.code}">${esc(st.label)}</option>`).join("");
   drawVoiceBox();
@@ -804,6 +833,27 @@ async function sendVoice(blob, name) {
   try { const r = await api("/api/voice-sample", { method: "POST", body: fd }); CONFIG.voice_clone = r.voice_clone; drawVoiceBox(); toast("Voice sample saved."); }
   catch (err) { toast(err.message, true); $("#recStatus") && ($("#recStatus").textContent = ""); }
 }
+
+// ---------- remake / react ----------
+$("#rmBtn").addEventListener("click", async e => {
+  const url = $("#rmUrl").value.trim(), transcript = $("#rmText").value.trim();
+  if (!url && !transcript) return toast("Paste a video link or its transcript.", true);
+  const btn = e.currentTarget, mode = $("input[name=rmMode]:checked").value;
+  busy(btn, true, transcript ? "Writing…" : "Reading the video…"); $("#log").innerHTML = "";
+  screenMessage(transcript ? "Gemini is writing" : "Reading the video", mode === "react" ? "Your reaction" : "Your own version", "");
+  try {
+    const { job } = await api("/api/remake", { json: { url, transcript, mode, language: $("#rmLang").value } });
+    const r = await pollJob(job);
+    $("#language").value = $("#rmLang").value;
+    $("#topic").value = r.topic || (mode === "react" ? "My reaction" : "My version");
+    $("#script").value = r.script; updateScriptMeta();
+    $$(".tab")[0].click();
+    setStep("step1", "done"); setStep("step2", "active");
+    screenMessage("Script ready", $("#topic").value, "Check it on the left, then build the video.");
+    toast("Your script is ready. Check it, then build.");
+  } catch (err) { toast(err.message, true); screenMessage("", "That didn’t work.", err.message); }
+  finally { busy(btn, false); }
+});
 
 // ---------- own video ----------
 let pickedFile = null;
