@@ -238,6 +238,37 @@ Return ONLY a JSON object (no markdown) with:
             "hashtags": _merge_common(data.get("hashtags") or [])}
 
 
+def rewrite_from_transcript(transcript, mode, language_code, log=_noop):
+    """Turns another video's transcript into an ORIGINAL script (mode "remake")
+    or your own commentary on it (mode "react"). Never a copy: reposting someone
+    else's words gets flagged by YouTube/Instagram as reused content."""
+    language_name = LANGUAGES[language_code]["label"]
+    if mode == "react":
+        task = f"""Write a REACTION / COMMENTARY Shorts script in {language_name}, spoken by me (the creator)
+responding to the main claims in this video: say what's interesting, what's missing or doubtful, add
+context or a counter-point, and give my own opinion. Refer to it as "a video I saw"; quote at most
+5 words from it."""
+    else:
+        task = f"""Write a NEW, ORIGINAL Shorts script in {language_name} on the same topic as this video.
+Do NOT copy its sentences, structure or distinctive phrases. Use your own hook, your own order and
+wording, and add at least one extra fact or angle the video didn't mention."""
+    prompt = f"""{task}
+
+Rules: natural spoken {language_name}, short sentences, strong hook in the first line, 30-45 seconds
+read aloud, end with a call to action, no headings or markdown.
+
+Transcript of the other video (for understanding only):
+\"\"\"{transcript[:12000]}\"\"\"
+
+Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", "script": "<the script>"}}"""
+    log("Gemini is writing your version")
+    data = json.loads(_strip_fences(call_gemini_with_retry(prompt, log).text))
+    script = str(data.get("script") or "").strip()
+    if not script:
+        raise RuntimeError("Gemini returned an empty script. Try again.")
+    return {"topic": str(data.get("topic") or "").strip(), "script": script}
+
+
 # =========================================
 # VOICE (edge-tts)
 # =========================================
@@ -437,6 +468,24 @@ def _build_segment_clip(path, is_image, duration):
     return clip
 
 
+LOGO_PATH = BASE_DIR / "assets" / "logo.png"
+
+
+def _add_logo(clip, log=_noop):
+    """Puts assets/logo.png in the top-right corner (transparent PNG works best).
+    Turn off with the environment variable ADD_LOGO=false."""
+    if os.environ.get("ADD_LOGO", "true").lower() == "false" or not LOGO_PATH.exists():
+        return clip
+    from moviepy import ImageClip, CompositeVideoClip
+    w = int(clip.w * 0.2)
+    margin = int(clip.w * 0.04)
+    logo = (ImageClip(str(LOGO_PATH)).resized(width=w).with_opacity(0.9)
+            .with_duration(clip.duration))
+    logo = logo.with_position((clip.w - logo.w - margin, margin + int(clip.h * 0.03)))
+    log("Adding your logo")
+    return CompositeVideoClip([clip, logo], size=clip.size)
+
+
 def _safe_name(text, fallback="short"):
     # ASCII only, so the file name survives URLs and secure_filename()
     name = re.sub(r"[^A-Za-z0-9\-]+", "_", text).strip("_")[:60]
@@ -513,6 +562,7 @@ def build_video(job_id, topic, language_code, gender, script, style="footage",
 
     step("render")
     final = concatenate_videoclips(video_clips, method="compose").with_audio(concatenate_audioclips(audio_clips))
+    final = _add_logo(final, log)
     out = VIDEOS_DIR / f"{_safe_name(topic)}_{datetime.now():%Y%m%d_%H%M%S}.mp4"
     log("Rendering the final video")
     _write(final, out, pct)
@@ -545,7 +595,7 @@ def reframe_existing(source_path, original_name, trim, log=_noop, step=_noop, pc
             log(f"Longer than {SHORTS_MAX_SECONDS}s, so YouTube may treat it as a regular video")
 
     step("render")
-    vertical = fit_vertical(clip)
+    vertical = _add_logo(fit_vertical(clip), log)
     base = _safe_name(Path(original_name).stem, "video")
     out = VIDEOS_DIR / f"{base}_short_{datetime.now():%Y%m%d_%H%M%S}.mp4"
     _write(vertical, out, pct)

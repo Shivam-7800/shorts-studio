@@ -1,5 +1,5 @@
 name: Write text
-run-name: "Write ${{ inputs.mode }}: ${{ inputs.topic }}${{ inputs.title }} [${{ inputs.request_id }}]"
+run-name: "Write ${{ inputs.mode }}: ${{ inputs.topic }}${{ inputs.title }}${{ inputs.url }} [${{ inputs.request_id }}]"
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       mode:
         type: choice
         default: script
-        options: [script, describe]
+        options: [script, describe, remake, react]
       topic:
         required: false
         type: string
@@ -18,8 +18,12 @@ on:
         type: choice
         default: hi-IN
         options: [hi-IN, en-IN, ta-IN, te-IN, kn-IN, mr-IN, bn-IN, gu-IN]
+      url:
+        description: "Video link for remake/react"
+        required: false
+        type: string
       context:
-        description: "Script, for better descriptions"
+        description: "Script (describe) or pasted transcript (remake/react)"
         required: false
         type: string
       request_id:
@@ -33,7 +37,7 @@ permissions:
 jobs:
   write:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,6 +45,15 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install google-genai requests google-auth google-auth-oauthlib google-api-python-client
+      - name: Install transcription tools
+        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != ''
+        run: pip install yt-dlp faster-whisper
+      - name: Reuse transcription model
+        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-small-v1
       - name: Ask Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -49,4 +62,5 @@ jobs:
           TITLE: ${{ inputs.title }}
           LANGUAGE: ${{ inputs.language }}
           CONTEXT: ${{ inputs.context }}
+          URL: ${{ inputs.url }}
         run: python gh_ai.py

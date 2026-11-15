@@ -29,6 +29,10 @@ on:
         description: "Title (leave empty for an AI title)"
         required: false
         type: string
+      logo:
+        description: "Add assets/logo.png to the video"
+        type: boolean
+        default: true
       request_id:
         description: "Used by the control panel. Leave empty."
         required: false
@@ -69,9 +73,60 @@ jobs:
           STYLE: ${{ inputs.style }}
           SCRIPT: ${{ inputs.script }}
           TITLE: ${{ inputs.title }}
+          ADD_LOGO: ${{ inputs.logo }}
         run: python gh_build.py
       - uses: actions/upload-artifact@v4
         with:
           name: short
           path: out/
           retention-days: 7
+
+  # Puts the finished video on your GitHub Pages site so the website can play it
+  # in the phone preview. Keeps only the newest 8 videos (one-commit branch, so
+  # the repo doesn't grow). Needs Settings → Pages → Source: "GitHub Actions".
+  preview:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: short
+          path: out
+      - name: Save preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p prev
+          if git ls-remote --exit-code origin previews >/dev/null 2>&1; then
+            git fetch -q --depth 1 origin previews
+            git archive FETCH_HEAD | tar -x -C prev
+          fi
+          cp out/short.mp4 "prev/$RUN_ID.mp4"
+          cp out/result.json "prev/$RUN_ID.json"
+          cd prev
+          ls *.mp4 | sort -n | head -n -8 | while read f; do rm -f "$f" "${f%.mp4}.json"; done
+          git init -q -b previews
+          git add -A
+          git -c user.name=shorts-studio-bot -c user.email=bot@users.noreply.github.com commit -qm "previews"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" previews
+          cd ..
+          mkdir -p docs/previews
+          cp prev/*.mp4 prev/*.json docs/previews/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Put the video on your website
+        uses: actions/deploy-pages@v4

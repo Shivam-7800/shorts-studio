@@ -91,6 +91,18 @@ Files committed in the past stay in the repo's history, so rotate those credenti
 
 ## Running it from GitHub (no computer needed)
 
+Settings → Pages → Source must be **GitHub Actions** (not "Deploy from a branch"):
+the website and the in-phone video previews are published by the workflows.
+The newest 8 videos are kept on the `previews` branch for the preview; that branch
+is public like the rest of the repo.
+
+**Logo:** upload a transparent PNG as `assets/logo.png` (on GitHub: Add file → Upload files).
+It goes in the top-right corner of every video (switch it off per video on the website).
+
+**Remake / React:** paste a video link (or its transcript). GitHub transcribes it and Gemini
+writes an original script or your commentary. It never reuses the other creator's words or footage.
+
+
 The `docs/` page is a control panel served by GitHub Pages. It starts the
 **Make a Short** and **Publish a Short** workflows in `.github/workflows/`, which
 run on GitHub's machines. Keys live in the repo's private **Secrets**

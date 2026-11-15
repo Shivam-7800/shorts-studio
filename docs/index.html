@@ -279,6 +279,7 @@ code { overflow-wrap: anywhere; }
 
     <div class="tabs" role="tablist" id="tabs" hidden>
       <button class="tab" role="tab" aria-selected="true" data-view="create">Make a new Short</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="remake">Remake / React</button>
       <button class="tab" role="tab" aria-selected="false" data-view="library">Library</button>
     </div>
 
@@ -316,6 +317,7 @@ code { overflow-wrap: anywhere; }
             </div>
             <button class="btn primary" id="writeBtn">Write script</button>
           </div>
+          <label class="check" style="margin-top:14px"><input type="checkbox" id="logoOn" checked> <span>Add my logo (upload it to the repo as <code>assets/logo.png</code>)</span></label>
           <div class="voicebox" id="voiceBox" hidden>
             <strong>Your voice on GitHub</strong>
             <p class="meta" style="margin:0">Works for English and Hindi. Builds take 10 to 15 minutes because GitHub has to load the voice model. One-time setup: record your voice in the PC app, run <code>python make_voice_secret.py</code>, and save what it copies as the <code>VOICE_SAMPLE_B64</code> secret.</p>
@@ -344,7 +346,7 @@ code { overflow-wrap: anywhere; }
         <div class="step-num">3</div>
         <div class="step-body">
           <h2>Review and publish</h2>
-          <p class="hint">Download and watch it first. Nothing is posted until you press Publish.</p>
+          <p class="hint">Watch it in the preview first. Nothing is posted until you press Publish.</p>
           <div id="publishArea">
             <label class="field" for="pTitle">Title</label>
             <input type="text" id="pTitle" maxlength="100">
@@ -391,6 +393,36 @@ code { overflow-wrap: anywhere; }
             </div>
             <div class="results" id="results"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REMAKE / REACT ===== -->
+    <div class="view" id="view-remake" hidden>
+      <div class="step active">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h2>Start from another video</h2>
+          <p class="hint">GitHub transcribes the video, then Gemini writes your own version. It never copies the other creator’s words or footage, because reposted content gets channels flagged on YouTube and Instagram.</p>
+          <label class="field" for="rmUrl">Video link</label>
+          <input type="text" id="rmUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+          <label class="field" for="rmText" style="margin-top:12px">Or paste its transcript <span style="color:var(--muted);font-weight:400">(faster, and works when YouTube blocks the download)</span></label>
+          <textarea id="rmText" rows="4"></textarea>
+          <div class="row" style="margin-top:14px">
+            <div>
+              <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">What to make</span>
+              <div class="seg" role="radiogroup" aria-label="What to make">
+                <input type="radio" name="rmMode" id="rm1" value="remake" checked><label for="rm1">My own version</label>
+                <input type="radio" name="rmMode" id="rm2" value="react"><label for="rm2">My reaction</label>
+              </div>
+            </div>
+            <div class="grow">
+              <label class="field" for="rmLang">Language</label>
+              <select id="rmLang"></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:14px"><button class="btn primary" id="rmBtn">Get my script</button></div>
+          <p class="meta">From a link this takes 2 to 5 minutes (download and transcription). From a pasted transcript, about 1 minute. The script then opens in “Make a new Short” for you to check and build.</p>
         </div>
       </div>
     </div>
@@ -450,22 +482,38 @@ async function gh(path, opts = {}) {
 
 // ---------- phone screen ----------
 function screen(now, big, sub = "", extra = "") {
-  clearInterval(captionTimer);
+  clearInterval(captionTimer); clearPhoneVideo();
   $("#screenMsg").innerHTML = `${now ? `<div class="now">${esc(now)}</div>` : ""}${big ? `<div class="big">${esc(big)}</div>` : ""}${sub ? `<div class="sub">${esc(sub)}</div>` : ""}${extra}`;
 }
 function screenCaptions(lines) {
-  clearInterval(captionTimer);
+  clearInterval(captionTimer); clearPhoneVideo();
   $("#screenMsg").innerHTML = `<div class="now" id="nowStep">Starting</div><div class="caption" id="caption"></div><div class="sub" id="subStep"></div>`;
   let i = 0; const tick = () => { const c = $("#caption"); if (c) c.textContent = lines[i++ % lines.length] || ""; };
   tick(); captionTimer = setInterval(tick, 2600);
 }
-function screenReady(run, art) {
+async function screenReady(run, art) {
   $("#segments").hidden = true;
   const link = art ? `https://github.com/${cfg.owner}/${cfg.repo}/actions/runs/${run.id}/artifacts/${art.id}` : run.html_url;
-  screen("Video ready", "Download and watch it.", "It comes as a zip file with short.mp4 inside. GitHub keeps it for 7 days.",
-    `<div class="ready-card"><a class="btn primary" href="${link}" target="_blank" rel="noopener">Download video</a></div>`);
   $("#dlBtn").href = link;
+  screen("Loading preview", "Your video is ready.", "Getting it into the phone…");
+  const src = `previews/${run.id}.mp4`;
+  for (let i = 0; i < 12; i++) {   // the website can take a moment to refresh
+    try { const r = await fetch(src, { method: "HEAD", cache: "no-store" }); if (r.ok) return playInPhone(src); } catch {}
+    await sleep(5000);
+  }
+  screen("Video ready", "Download and watch it.", "The in-phone preview isn’t available for this video (only the newest 8 are kept, and it needs Pages set to “GitHub Actions”).",
+    `<div class="ready-card"><a class="btn primary" href="${link}" target="_blank" rel="noopener">Download video</a></div>`);
 }
+function playInPhone(src) {
+  clearInterval(captionTimer);
+  $("#screenMsg").innerHTML = "";
+  $("#screen").querySelector("video")?.remove();
+  const v = document.createElement("video");
+  v.src = src; v.controls = true; v.playsInline = true; v.autoplay = true;
+  v.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000";
+  $("#screen").append(v);
+}
+function clearPhoneVideo() { $("#screen").querySelector("video")?.remove(); }
 function drawSegments(steps) {
   const seg = $("#segments"); seg.hidden = false;
   seg.innerHTML = steps.map(s => `<div class="segment"><i style="width:${s.conclusion === "success" ? 100 : s.status === "in_progress" ? 50 : 0}%"></i></div>`).join("");
@@ -485,15 +533,17 @@ async function dispatch(workflow, inputs) {
 }
 const STEP_NAMES = { "Run actions/checkout@v4": "Getting the code", "Run actions/setup-python@v5": "Preparing Python",
   "Build the video": "Script, voice, footage and rendering", "Run actions/upload-artifact@v4": "Saving the video",
-  "Run actions/download-artifact@v4": "Fetching the video", "Upload to YouTube": "Uploading to YouTube", "Ask Gemini": "Gemini is writing" };
+  "Run actions/download-artifact@v4": "Fetching the video", "Upload to YouTube": "Uploading to YouTube", "Ask Gemini": "Gemini is writing",
+  "Save preview": "Preparing your preview", "Put the video on your website": "Loading the video into the preview",
+  "Install transcription tools": "Getting the transcriber ready", "Run actions/deploy-pages@v4": "Loading the preview" };
 const friendly = n => STEP_NAMES[n] || (n.startsWith("Run pip") ? "Installing tools" : n.replace(/^Run /, ""));
 
 async function watch(run, { segments = false } = {}) {
   const start = Date.now(), seen = new Set();
   while (true) {
     const [r, jobs] = await Promise.all([gh(`${repoPath()}/actions/runs/${run.id}`), gh(`${repoPath()}/actions/runs/${run.id}/jobs`)]);
-    const job = jobs.jobs[0];
-    const steps = (job?.steps || []).filter(s => !/^(Set up job|Complete job|Post )/.test(s.name));
+    const job = jobs.jobs.find(j => j.name === "build") || jobs.jobs[0];
+    const steps = jobs.jobs.flatMap(j => j.steps || []).filter(s => !/^(Set up job|Complete job|Post )/.test(s.name));
     steps.forEach(s => { const k = s.name + s.status; if (s.status !== "queued" && !seen.has(k)) { seen.add(k); if (s.status === "in_progress") addLog(friendly(s.name)); } });
     if (segments && steps.length) drawSegments(steps);
     const cur = steps.find(s => s.status === "in_progress");
@@ -522,7 +572,7 @@ function failLog(err) {
 function show() {
   const ready = cfg.owner && cfg.repo && cfg.token;
   $("#setup").hidden = !!ready; $("#tabs").hidden = !ready; $("#view-create").hidden = !ready; $("#settingsBtn").hidden = !ready;
-  $("#view-library").hidden = true;
+  $("#view-library").hidden = true; $("#view-remake").hidden = true;
   $("#owner").value = cfg.owner || ""; $("#repo").value = cfg.repo || "";
 }
 $("#saveSetup").onclick = () => {
@@ -536,7 +586,7 @@ $("#settingsBtn").onclick = () => { $("#setup").hidden = !$("#setup").hidden; };
 // ---------- tabs ----------
 $$(".tab").forEach(t => t.onclick = () => {
   $$(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
-  $("#view-create").hidden = t.dataset.view !== "create"; $("#view-library").hidden = t.dataset.view !== "library";
+  ["create", "remake", "library"].forEach(v => $("#view-" + v).hidden = t.dataset.view !== v);
   if (t.dataset.view === "library") loadLibrary();
 });
 
@@ -574,7 +624,7 @@ $("#buildBtn").onclick = async e => {
   screenCaptions(splitLines(script));
   try {
     const run = await dispatch("make-short.yml", { topic, script, title: "", language: $("#language").value,
-      voice: $("input[name=gender]:checked").value, style: $("#style").value });
+      voice: $("input[name=gender]:checked").value, style: $("#style").value, logo: $("#logoOn").checked });
     const res = await watch(run, { segments: true });
     await openResult(res.run, res.job);
     setStep("step2", "done"); setStep("step3", "active");
@@ -586,10 +636,10 @@ $("#buildBtn").onclick = async e => {
 // ---------- step 3: review + publish ----------
 async function openResult(run, job) {
   currentRun = run;
-  if (!job) job = (await gh(`${repoPath()}/actions/runs/${run.id}/jobs`)).jobs[0];
+  if (!job) { const js = (await gh(`${repoPath()}/actions/runs/${run.id}/jobs`)).jobs; job = js.find(j => j.name === "build") || js[0]; }
   const arts = await gh(`${repoPath()}/actions/runs/${run.id}/artifacts`);
   const art = arts.artifacts.find(a => a.name === "short" && !a.expired);
-  screenReady(run, art);
+  screenReady(run, art);  // plays in the phone when ready, in the background
   try {
     const r = await annotation(job, "result");
     $("#pTitle").value = r.title || ""; $("#pDesc").value = r.description || ""; tags = r.hashtags || []; drawChips();
@@ -656,6 +706,34 @@ $("#publishBtn").onclick = async e => {
     ].filter(Boolean).join("");
     toast(publishAt ? "Scheduled." : "Published.");
   } catch (err) { failLog(err); $("#results").innerHTML = `<div class="result-link err">${esc(err.message)}</div>`; }
+  finally { busy(btn, false); }
+};
+
+// ---------- remake / react ----------
+$("#rmLang").innerHTML = $("#language").innerHTML;
+$("#rmBtn").onclick = async e => {
+  const url = $("#rmUrl").value.trim(), text = $("#rmText").value.trim();
+  if (!url && !text) return toast("Paste a video link or its transcript.", true);
+  if (url && !/^https?:\/\//.test(url)) return toast("That link should start with https://", true);
+  const btn = e.currentTarget, mode = $("input[name=rmMode]:checked").value;
+  busy(btn, true, text ? "Writing…" : "Transcribing…"); $("#log").innerHTML = "";
+  screen(text ? "Gemini is writing" : "Transcribing the video", mode === "react" ? "Your reaction" : "Your own version",
+    text ? "About a minute." : "2 to 5 minutes.");
+  $("#screenMsg").insertAdjacentHTML("afterbegin", `<div class="now" id="nowStep" style="display:none"></div>`);
+  $("#screenMsg").insertAdjacentHTML("beforeend", `<div class="sub" id="subStep"></div>`);
+  try {
+    const run = await dispatch("ai-text.yml", { mode, url: text ? "" : url, context: text.slice(0, 20000), language: $("#rmLang").value });
+    const { job } = await watch(run);
+    const r = await annotation(job, "script");
+    $("#language").value = $("#rmLang").value;
+    $("#topic").value = r.topic || (mode === "react" ? "My reaction" : "My version");
+    $("#script").value = r.script; updateMeta();
+    $$(".tab")[0].click();
+    setStep("step1", "done"); setStep("step2", "active");
+    screen("Script ready", $("#topic").value, "Check it on the left, then click Build video.");
+    $("#step2").scrollIntoView({ behavior: "smooth" });
+    toast("Your script is ready. Check it, then build.");
+  } catch (err) { failLog(err); screen("", "That didn’t work.", err.message); }
   finally { busy(btn, false); }
 };
 
