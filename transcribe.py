@@ -29,7 +29,10 @@ def _ffmpeg():
         import imageio_ffmpeg
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
-        return "ffmpeg"
+        import shutil
+        if shutil.which("ffmpeg"):
+            return "ffmpeg"
+        raise RuntimeError("ffmpeg is missing. Run: python -m pip install imageio-ffmpeg")
 
 
 def _download(url, log):
