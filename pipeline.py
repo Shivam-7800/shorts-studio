@@ -304,6 +304,32 @@ Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", 
     return {"topic": str(data.get("topic") or "").strip(), "script": script}
 
 
+def identify_song(media_path, meta=None, log=_noop):
+    """Asks Gemini which song is playing (plus any title/artist info the site gave),
+    so you can pick the same song in the Instagram / YouTube app."""
+    import io
+    import wave
+    import numpy as np
+    import transcribe
+    from google.genai import types
+    audio = transcribe._decode_pyav(media_path)[: 16000 * 45]
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    hints = json.dumps({k: v for k, v in (meta or {}).items() if v}, ensure_ascii=False)[:1500]
+    prompt = f"""Which song is playing in this audio? Info from the page it came from (may help): {hints}
+If you recognise it, give its title and main artist. If you are not sure, give your best guess and set
+"sure" to false. Do NOT write any lyrics.
+Return ONLY a JSON object (no markdown):
+{{"title": "...", "artist": "...", "sure": true/false, "search": "<what to type in the Instagram/YouTube music search>"}}"""
+    log("Finding out which song it is")
+    data = json.loads(_strip_fences(call_gemini_with_retry(
+        [types.Part.from_bytes(data=buf.getvalue(), mime_type="audio/wav"), prompt], log, GEMINI_FAST_MODELS).text))
+    return {"title": str(data.get("title") or "").strip(), "artist": str(data.get("artist") or "").strip(),
+            "sure": bool(data.get("sure")), "search": str(data.get("search") or "").strip()}
+
+
 def rewrite_from_youtube(url, mode, language_code, log=_noop):
     """Gemini watches a public YouTube video itself (Google's official YouTube
     support), so nothing is downloaded by our server and nothing gets blocked."""

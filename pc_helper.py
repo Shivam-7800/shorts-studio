@@ -73,26 +73,36 @@ class GitHub:
             parts = item["path"].split("/")
             if len(parts) == 3 and parts[0] == "uploads":
                 folders.setdefault(parts[1], {})[parts[2]] = item["sha"]
-        return [(fid, files["request.json"]) for fid, files in folders.items()
+        return [(fid, files) for fid, files in folders.items()
                 if "request.json" in files and not any(n.startswith("media.") for n in files)]
 
     def read_blob(self, sha):
         return base64.b64decode(self.call("GET", f"/git/blobs/{sha}").json()["content"])
 
-    def add_file(self, path, data):
-        blob = self.call("POST", "/git/blobs", json={"content": base64.b64encode(data).decode(), "encoding": "base64"})
-        blob.raise_for_status()
+    def add_files(self, files):  # files: {path: bytes}, saved in one commit
+        entries = []
+        for path, data in files.items():
+            blob = self.call("POST", "/git/blobs", json={"content": base64.b64encode(data).decode(), "encoding": "base64"})
+            blob.raise_for_status()
+            entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]})
         for _ in range(5):  # retry if the website uploaded something at the same moment
             head = self.call("GET", "/git/ref/heads/uploads").json()["object"]["sha"]
             base_tree = self.call("GET", f"/git/commits/{head}").json()["tree"]["sha"]
-            tree = self.call("POST", "/git/trees", json={"base_tree": base_tree, "tree": [
-                {"path": path, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]}]}).json()
+            tree = self.call("POST", "/git/trees", json={"base_tree": base_tree, "tree": entries}).json()
             commit = self.call("POST", "/git/commits", json={"message": "pc helper", "tree": tree["sha"],
                                                               "parents": [head]}).json()
             if self.call("PATCH", "/git/refs/heads/uploads", json={"sha": commit["sha"]}).ok:
                 return
             time.sleep(2)
         raise RuntimeError("couldn't save the file to GitHub")
+
+    def start_dance(self, req, upload_id, error=""):
+        inputs = {"topic": "Dance video", "title": f"HELPER_ERROR: {error}" if error else "", "script": "",
+                  "language": req.get("language", "hi-IN"), "voice": "female", "style": "footage",
+                  "logo": False, "upload_id": upload_id, "request_id": req.get("request_id", "")}
+        r = self.call("POST", "/actions/workflows/make-short.yml/dispatches", json={"ref": "main", "inputs": inputs})
+        if not r.ok:
+            print("  Couldn't start GitHub:", r.status_code, r.text[:200])
 
     def start_writer(self, req, upload_id, error=""):
         inputs = {"mode": req.get("mode", "remake"), "language": req.get("language", "hi-IN"),
@@ -109,13 +119,15 @@ def download_audio(url):
     opts = {"format": "bestaudio/best", "outtmpl": str(tmp / "media.%(ext)s"), "quiet": True,
             "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration <? 1200")}
     with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.extract_info(url, download=True)
+        info = ydl.extract_info(url, download=True) or {}
+    meta = {k: info.get(k) for k in ("track", "artist", "album", "title", "uploader")}
+    meta["description"] = (info.get("description") or "")[:500]
     files = sorted((f for f in tmp.iterdir() if f.stat().st_size > 0), key=lambda f: f.stat().st_size, reverse=True)
     if not files:
         raise RuntimeError("the site sent an empty file (the video may be private or need a login)")
     if files[0].stat().st_size > 90 * 1024 * 1024:
         raise RuntimeError("the video is too big (over 90 MB)")
-    return files[0]
+    return files[0], meta
 
 
 def check_repo(repo, token):
@@ -147,25 +159,30 @@ def main():
     done = set()
     while True:
         try:
-            for upload_id, sha in gh.pending_requests():
+            for upload_id, files in gh.pending_requests():
                 if upload_id in done:
                     continue
                 done.add(upload_id)
-                req = json.loads(gh.read_blob(sha))
+                req = json.loads(gh.read_blob(files["request.json"]))
+                is_dance = False
+                if "options.json" in files:
+                    is_dance = json.loads(gh.read_blob(files["options.json"])).get("kind") == "dance"
+                start = gh.start_dance if is_dance else gh.start_writer
                 if time.time() - req.get("created", 0) / 1000 > MAX_AGE_SECONDS:
                     continue  # stale request, skip
                 print(f"Link received: {req.get('url')}")
                 try:
-                    path = download_audio(req["url"])
+                    path, meta = download_audio(req["url"])
                     print(f"  Downloaded ({path.stat().st_size // 1024} KB), sending to GitHub")
-                    gh.add_file(f"uploads/{upload_id}/media{path.suffix}", path.read_bytes())
-                    gh.start_writer(req, upload_id)
-                    print("  Done. The script will appear on the website in about a minute.")
+                    gh.add_files({f"uploads/{upload_id}/media{path.suffix}": path.read_bytes(),
+                                  f"uploads/{upload_id}/info.json": json.dumps(meta, ensure_ascii=False).encode()})
+                    start(req, upload_id)
+                    print("  Done. Check the website: a script takes about 1 minute, a dance video 3 to 6 minutes.")
                 except Exception as e:
                     msg = str(e).splitlines()[0][:200]
                     print("  Failed:", msg)
-                    gh.start_writer(req, upload_id, error=f"Your PC couldn’t download that link: {msg}. "
-                                                          "Save the video and use “Upload the video” instead.")
+                    start(req, upload_id, error=f"Your PC couldn’t download that link: {msg}. "
+                                                "Save the video and use “Upload the video” instead.")
         except SystemExit:
             raise
         except Exception as e:

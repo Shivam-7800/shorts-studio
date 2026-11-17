@@ -68,6 +68,18 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Install photo cut-out tool
+        if: inputs.upload_id != ''
+        run: |
+          if grep -q '"dancer": *"photo"' in/options.json 2>/dev/null; then
+            pip install rembg onnxruntime "pillow<12"
+          fi
+      - name: Reuse cut-out models
+        if: inputs.upload_id != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.rembg
+          key: rembg-models-v1
       # Only for "My voice": the voice model (~3 GB; the model files are cached between runs)
       - name: Install your-voice model
         if: inputs.voice == 'mine'

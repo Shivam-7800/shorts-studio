@@ -348,6 +348,7 @@ code { overflow-wrap: anywhere; }
         <div class="step-body">
           <h2>Review and publish</h2>
           <p class="hint">Watch it in the preview first. Nothing is posted until you press Publish.</p>
+          <div class="notice warn" id="songCard" hidden style="margin-bottom:14px"></div>
           <div id="publishArea">
             <label class="field" for="pTitle">Title</label>
             <input type="text" id="pTitle" maxlength="100">
@@ -417,11 +418,37 @@ code { overflow-wrap: anywhere; }
               <div class="seg" role="radiogroup" aria-label="What to make">
                 <input type="radio" name="rmMode" id="rm1" value="remake" checked><label for="rm1">My own version</label>
                 <input type="radio" name="rmMode" id="rm2" value="react"><label for="rm2">My reaction</label>
+                <input type="radio" name="rmMode" id="rm3" value="dance"><label for="rm3">Dance video</label>
               </div>
             </div>
             <div class="grow">
               <label class="field" for="rmLang">Language</label>
               <select id="rmLang"></select>
+            </div>
+          </div>
+          <div class="voicebox" id="danceBox" hidden>
+            <strong>Dance to the same song</strong>
+            <p class="meta" style="margin:0">The dancer moves on every beat of the song. The video is silent: you add the same song in the Instagram or YouTube app, so it’s never muted. Use a link (your PC helper downloads it) or upload the video.</p>
+            <div class="row" style="margin:0">
+              <div>
+                <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Dancer</span>
+                <div class="seg" role="radiogroup" aria-label="Dancer">
+                  <input type="radio" name="dancer" id="dn1" value="mascot" checked><label for="dn1">Cartoon mascot</label>
+                  <input type="radio" name="dancer" id="dn2" value="photo"><label for="dn2">My photo</label>
+                </div>
+              </div>
+              <div id="mascotStyleBox">
+                <span class="field" style="display:block;font-weight:600;font-size:.9rem;margin-bottom:6px">Mascot colours</span>
+                <div class="seg" role="radiogroup" aria-label="Mascot colours">
+                  <input type="radio" name="mstyle" id="ms1" value="bolt" checked><label for="ms1">Yellow</label>
+                  <input type="radio" name="mstyle" id="ms2" value="mint"><label for="ms2">Mint</label>
+                  <input type="radio" name="mstyle" id="ms3" value="coral"><label for="ms3">Coral</label>
+                </div>
+              </div>
+            </div>
+            <div id="dancePhotoBox" hidden>
+              <label class="field" for="dancePhoto">Full-body photo <span style="color:var(--muted);font-weight:400">(standing, plain background works best; it’s cut out automatically)</span></label>
+              <input type="file" id="dancePhoto" accept="image/*" style="width:100%;background:var(--night);border:1px solid var(--line);border-radius:12px;padding:10px">
             </div>
           </div>
           <div class="row" style="margin-top:14px"><button class="btn primary" id="rmBtn">Get my script</button></div>
@@ -594,6 +621,14 @@ function playInPhone(src) {
   $("#screen").querySelector("video")?.remove();
   const v = document.createElement("video");
   v.src = src; v.controls = true; v.playsInline = true; v.autoplay = true;
+  if (previewAudioURL) {  // silent dance video: play your uploaded song with it, in sync
+    const a = new Audio(previewAudioURL);
+    const sync = () => { if (Math.abs(a.currentTime - v.currentTime) > 0.08) a.currentTime = v.currentTime; };
+    v.addEventListener("play", () => { sync(); a.play().catch(() => {}); });
+    v.addEventListener("pause", () => a.pause());
+    v.addEventListener("seeked", sync);
+    v.addEventListener("ended", () => a.pause());
+  }
   v.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000";
   $("#screen").append(v);
 }
@@ -718,6 +753,7 @@ $("#buildBtn").onclick = async e => {
   const btn = e.currentTarget, topic = $("#topic").value.trim(), script = $("#script").value.trim();
   if (!topic || !script) return toast("A topic and a script are both needed. Click Write script or paste your own.", true);
   busy(btn, true, "Building…"); $("#log").innerHTML = ""; setStep("step3", "locked"); $("#results").innerHTML = "";
+  previewAudioURL = null; $("#songCard").hidden = true;
   screenCaptions(splitLines(script));
   try {
     const run = await dispatch("make-short.yml", { topic, script, title: "", language: $("#language").value,
@@ -740,8 +776,22 @@ async function openResult(run, job) {
   try {
     const r = await annotation(job, "result");
     $("#pTitle").value = r.title || ""; $("#pDesc").value = r.description || ""; tags = r.hashtags || []; drawChips();
+    showSongCard(r);
   } catch { /* older runs have no result note */ }
   if (!art) toast("This video has expired. Build it again.", true);
+}
+function showSongCard(r) {
+  const card = $("#songCard");
+  if (!r || !r.silent) { card.hidden = true; return; }
+  const sg = r.song || {}, name = [sg.title, sg.artist].filter(Boolean).join(" – ");
+  card.hidden = false;
+  card.innerHTML = `<strong>🎵 Song: ${name ? esc(name) : "couldn’t identify it"}</strong>${name && !sg.sure ? " <span style='color:var(--muted)'>(best guess, check it)</span>" : ""}
+    ${sg.search ? `<br>Search for: <code>${esc(sg.search)}</code>` : ""}
+    <br><br><strong>This video is silent. Add the song like this, so it stays in sync:</strong>
+    <br>• <strong>Instagram:</strong> open the original Reel → tap the song name at the bottom → <em>Use audio</em> → pick this video. The song starts at the same point, so the moves match the beat.
+    <br>• <strong>YouTube Shorts:</strong> on the original Short tap <em>Remix → Sound</em>, or in Create → <em>Add sound</em>, search the song.
+    <br>• <strong>Facebook / WhatsApp:</strong> add the song with the app’s music option.
+    <br>Download the video first. Publishing from here would post it without music.`;
 }
 function drawChips() {
   const chips = $("#chips"), input = $("input", chips);
@@ -806,6 +856,16 @@ $("#publishBtn").onclick = async e => {
   finally { busy(btn, false); }
 };
 
+// ---------- dance settings ----------
+let previewAudioURL = null;  // the uploaded song, played next to the silent preview
+function syncDanceBox() {
+  const dance = $("#rm3").checked, photo = $("#dn2").checked;
+  $("#danceBox").hidden = !dance; $("#dancePhotoBox").hidden = !photo; $("#mascotStyleBox").hidden = photo;
+  $("#rmBtn").textContent = dance ? "Make dance video" : "Get my script";
+  $("#rmText").disabled = dance;
+}
+$$("input[name=rmMode], input[name=dancer]").forEach(r => r.addEventListener("change", syncDanceBox));
+
 // ---------- remake / react ----------
 $("#rmLang").innerHTML = $("#language").innerHTML;
 $("#rmBtn").onclick = async e => {
@@ -814,6 +874,7 @@ $("#rmBtn").onclick = async e => {
   if (!file && url && !/^https?:\/\//.test(url)) return toast("That link should start with https://", true);
   const viaPC = !file && !text && url && !/youtu\.?be/i.test(url);
   const btn = e.currentTarget, mode = $("input[name=rmMode]:checked").value;
+  if (mode === "dance") return makeDance(btn, url, file);
   busy(btn, true, text ? "Writing…" : "Transcribing…"); $("#log").innerHTML = "";
   screen(text ? "Gemini is writing" : "Transcribing the video", mode === "react" ? "Your reaction" : "Your own version",
     text ? "About a minute." : "2 to 5 minutes.");
@@ -849,6 +910,41 @@ $("#rmBtn").onclick = async e => {
   finally { busy(btn, false); }
 };
 
+async function makeDance(btn, url, file) {
+  if (!url && !file) return toast("Paste the video’s link or upload the video.", true);
+  const dancer = $("input[name=dancer]:checked").value, photo = $("#dancePhoto").files[0];
+  if (dancer === "photo" && !photo) return toast("Choose your full-body photo.", true);
+  busy(btn, true, "Uploading…"); $("#log").innerHTML = "";
+  previewAudioURL = file ? URL.createObjectURL(file) : null;
+  screenCaptions(["Finding the beat…", "Learning the moves…", "Setting up the lights…"]);
+  try {
+    const options = new Blob([JSON.stringify({ kind: "dance", dancer, style: $("input[name=mstyle]:checked").value })], { type: "application/json" });
+    const files = [{ path: "options.json", blob: options, label: "settings" }];
+    if (dancer === "photo") files.push({ path: "photo.jpg", blob: await shrinkPhoto(photo, 1600), label: "your photo" });
+    let run;
+    if (file) {
+      files.push({ path: `media.${ext(file, "mp4")}`, blob: file, label: "the video" });
+      const upload_id = await uploadFiles(files);
+      btn.innerHTML = `<span class="spin"></span>Making…`;
+      run = await dispatch("make-short.yml", { topic: "Dance video", title: "", script: "", language: $("#rmLang").value,
+        voice: "female", style: "footage", logo: false, upload_id });
+    } else {
+      const rid = Math.random().toString(36).slice(2, 10);
+      files.push({ path: "request.json", blob: new Blob([JSON.stringify({ url, mode: "dance", language: $("#rmLang").value, request_id: rid, created: Date.now() })]), label: "the link" });
+      await uploadFiles(files);
+      btn.innerHTML = `<span class="spin"></span>Your PC is downloading…`;
+      run = await waitForRun("make-short.yml", rid, 60,
+        "Your PC helper didn’t answer. On your PC run: python pc_helper.py (and leave it open), then try again. Or upload the video.");
+    }
+    const res = await watch(run, { segments: true });
+    await openResult(res.run, res.job);
+    $$(".tab")[0].click(); setStep("step1", "done"); setStep("step2", "done"); setStep("step3", "active");
+    $("#step3").scrollIntoView({ behavior: "smooth" });
+    toast("Dance video ready. It’s silent: add the song in the app (see the yellow box).");
+  } catch (err) { failLog(err); $("#segments").hidden = true; screen("", "That didn’t work.", err.message); }
+  finally { busy(btn, false); }
+}
+
 // ---------- photo → video ----------
 let phPhoto = null;
 $("#phDrop").onclick = () => $("#phFile").click();
@@ -867,6 +963,7 @@ $("#phBtn").onclick = async e => {
   if (!phPhoto) return toast("Choose a photo first.", true);
   if (!sound) return toast("Choose the sound (a song, voice note or video).", true);
   const btn = e.currentTarget; busy(btn, true, "Uploading…"); $("#log").innerHTML = "";
+  previewAudioURL = null; $("#songCard").hidden = true;
   const fmt = $("input[name=phFmt]:checked").value, effect = $("input[name=phFx]:checked").value, title = $("#phTitleIn").value.trim();
   screenCaptions(["Moving the camera…", "Syncing to the beat…", "Adding light effects…"]);
   try {
