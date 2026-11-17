@@ -254,6 +254,9 @@ def remake():
         transcript = text
         if not transcript:
             import transcribe
+            if transcribe.video_id(url) and "youtu" in url.lower():
+                j.set_step("write")
+                return pipeline.rewrite_from_youtube(url, mode, language, log=j.log)
             j.set_step("transcribe")
             transcript = transcribe.get_transcript(url, log=j.log)
         j.set_step("write")

@@ -107,7 +107,7 @@ def download_audio(url):
     import yt_dlp
     tmp = Path(tempfile.mkdtemp())
     opts = {"format": "bestaudio/best", "outtmpl": str(tmp / "media.%(ext)s"), "quiet": True,
-            "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration < 1200")}
+            "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration <? 1200")}
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.extract_info(url, download=True)
     files = sorted((f for f in tmp.iterdir() if f.stat().st_size > 0), key=lambda f: f.stat().st_size, reverse=True)
@@ -118,8 +118,30 @@ def download_audio(url):
     return files[0]
 
 
+def check_repo(repo, token):
+    """Fixes "shorts-studio" → "YourName/shorts-studio" and makes sure the repo exists."""
+    s = requests.Session()
+    s.headers.update({"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
+    if "/" not in repo:
+        me = s.get(f"{API}/user", timeout=30)
+        if me.ok:
+            repo = f"{me.json()['login']}/{repo}"
+    r = s.get(f"{API}/repos/{repo}", timeout=30)
+    if r.status_code in (401, 403):
+        raise SystemExit("GitHub refused the token. Delete the GH_HELPER_TOKEN line from .env and run again with a new token.")
+    if not r.ok:
+        raise SystemExit(f"The repo '{repo}' wasn't found. Delete the GH_REPO line from .env and run again, "
+                         "typing it as YourName/shorts-studio (for example Shivam-7800/shorts-studio).")
+    if ENV.exists():
+        text = ENV.read_text(encoding="utf-8")
+        ENV.write_text("\n".join(f"GH_REPO={repo}" if l.startswith("GH_REPO=") else l
+                                 for l in text.splitlines()) + "\n", encoding="utf-8")
+    return repo
+
+
 def main():
     repo, token = load_settings()
+    repo = check_repo(repo, token)
     gh = GitHub(repo, token)
     print(f"PC helper is running for {repo}. Leave this window open. (Ctrl+C to stop)")
     done = set()

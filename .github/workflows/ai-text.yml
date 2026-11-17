@@ -65,10 +65,10 @@ jobs:
         if: inputs.upload_id != ''
         run: pip install av numpy
       - name: Install transcription tools
-        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != ''
+        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != '' && !contains(inputs.url, 'youtu')
         run: pip install youtube-transcript-api yt-dlp faster-whisper imageio-ffmpeg
       - name: Reuse transcription model
-        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != ''
+        if: (inputs.mode == 'remake' || inputs.mode == 'react') && inputs.url != '' && !contains(inputs.url, 'youtu')
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface

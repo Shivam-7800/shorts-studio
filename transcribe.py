@@ -39,7 +39,7 @@ def _download(url, log):
     import yt_dlp
     tmp = Path(tempfile.mkdtemp())
     opts = {"format": "bestaudio/best", "outtmpl": str(tmp / "source.%(ext)s"), "quiet": True,
-            "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration < 1200")}
+            "noplaylist": True, "match_filter": yt_dlp.utils.match_filter_func("duration <? 1200")}
     log("Downloading the audio")
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.extract_info(url, download=True)
@@ -123,8 +123,8 @@ def get_transcript(url, log=print):
         path = _download(url, log)
     except Exception as e:
         detail = str(e).splitlines()[0][:180]
-        raise RuntimeError(f"{site} didn’t let us download this video. Big sites often block servers like GitHub, "
-                           f"so use Remake in the PC app or paste the transcript. [{detail}]")
+        raise RuntimeError(f"{site} doesn’t allow servers to download its videos. Save the video to your phone or PC "
+                           f"and use “Upload the video” instead. [{detail}]")
     try:
         text = _transcribe_file(path, log).strip()
     except Exception as e:

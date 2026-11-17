@@ -304,6 +304,37 @@ Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", 
     return {"topic": str(data.get("topic") or "").strip(), "script": script}
 
 
+def rewrite_from_youtube(url, mode, language_code, log=_noop):
+    """Gemini watches a public YouTube video itself (Google's official YouTube
+    support), so nothing is downloaded by our server and nothing gets blocked."""
+    import transcribe
+    from google.genai import types
+    vid = transcribe.video_id(url)
+    if not vid:
+        raise RuntimeError("That doesn’t look like a YouTube video link.")
+    language_name = LANGUAGES[language_code]["label"]
+    what = ("a REACTION / COMMENTARY script spoken by me, responding to what's said and shown: what's interesting, "
+            "what's missing or doubtful, extra context and my own opinion. Call it \"a video I saw\"; quote at most 5 words."
+            if mode == "react" else
+            "a NEW, ORIGINAL script on the same topic. Don't copy its sentences, structure or phrases; use your own "
+            "hook, order and wording, and add at least one extra fact or angle.")
+    prompt = f"""Watch this video by another creator. Write {what}
+Language: natural spoken {language_name}. Short sentences, strong hook first, 30-45 seconds read aloud,
+end with a call to action, no headings or markdown.
+Return ONLY a JSON object (no markdown): {{"topic": "<short topic in English>", "script": "<the script>"}}"""
+    log("Gemini is watching the YouTube video")
+    video = types.Part(file_data=types.FileData(file_uri=f"https://www.youtube.com/watch?v={vid}"))
+    try:
+        data = json.loads(_strip_fences(call_gemini_with_retry([video, prompt], log).text))
+    except RuntimeError as e:
+        raise RuntimeError("Gemini couldn’t open that YouTube video (it must be public, not private or "
+                           f"age-restricted). Upload the video file instead. [{str(e)[:150]}]")
+    script = str(data.get("script") or "").strip()
+    if not script:
+        raise RuntimeError("Gemini returned an empty script. Try again.")
+    return {"topic": str(data.get("topic") or "").strip(), "script": script}
+
+
 # =========================================
 # VOICE (edge-tts)
 # =========================================
