@@ -30,6 +30,9 @@ def main():
                                                       os.environ.get("CONTEXT", ""), log=print))
     else:  # remake / react
         from pathlib import Path
+        helper_error = (os.environ.get("CONTEXT") or "").strip()
+        if helper_error.startswith("HELPER_ERROR:"):
+            fail(helper_error[len("HELPER_ERROR:"):].strip())
         uploaded = [f for f in Path("in").glob("media.*")] if Path("in").exists() else []
         if uploaded:
             send("script", pipeline.rewrite_from_audio(uploaded[0], mode, language, log=print))
@@ -41,6 +44,10 @@ def main():
             if not url:
                 fail("Paste a video link or a transcript.")
             import transcribe
+            if transcribe.video_id(url) and "youtu" in url.lower():
+                send("script", pipeline.rewrite_from_youtube(url, mode, language, log=print))
+                print("Done.")
+                return
             transcript = transcribe.get_transcript(url, log=print)
         send("script", pipeline.rewrite_from_transcript(transcript, mode, language, log=print))
     print("Done.")

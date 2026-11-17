@@ -405,9 +405,9 @@ code { overflow-wrap: anywhere; }
         <div class="step-body">
           <h2>Start from another video</h2>
           <p class="hint">GitHub transcribes the video, then Gemini writes your own version. It never copies the other creator’s words or footage, because reposted content gets channels flagged on YouTube and Instagram.</p>
-          <label class="field" for="rmUrl">Video link <span style="color:var(--muted);font-weight:400">(Instagram Reels usually work; YouTube often blocks GitHub, so use the PC app for YouTube links)</span></label>
-          <input type="text" id="rmUrl" placeholder="https://www.instagram.com/reel/..." autocomplete="off">
-          <label class="field" for="rmFile" style="margin-top:12px">Or upload the video <span style="color:var(--muted);font-weight:400">(always works: save the Reel or Short first, then pick it here)</span></label>
+          <label class="field" for="rmUrl">Video link <span style="color:var(--muted);font-weight:400">(YouTube: Gemini watches it directly. Instagram and others: your PC helper downloads it, so keep <code>python pc_helper.py</code> running)</span></label>
+          <input type="text" id="rmUrl" placeholder="https://www.instagram.com/reel/...  or  https://youtube.com/shorts/..." autocomplete="off">
+          <label class="field" for="rmFile" style="margin-top:12px">Or upload the video <span style="color:var(--muted);font-weight:400">(for Instagram, Facebook, WhatsApp or any video: save it first, then pick it here)</span></label>
           <input type="file" id="rmFile" accept="video/*,audio/*" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px">
           <label class="field" for="rmText" style="margin-top:12px">Or paste its transcript <span style="color:var(--muted);font-weight:400">(faster, and always works)</span></label>
           <textarea id="rmText" rows="4"></textarea>
@@ -425,7 +425,7 @@ code { overflow-wrap: anywhere; }
             </div>
           </div>
           <div class="row" style="margin-top:14px"><button class="btn primary" id="rmBtn">Get my script</button></div>
-          <p class="meta">From a link this takes 2 to 5 minutes (download and transcription). From a pasted transcript, about 1 minute. The script then opens in “Make a new Short” for you to check and build.</p>
+          <p class="meta">About 1 minute for a YouTube link, an uploaded video or a pasted transcript. The script then opens in “Make a new Short” for you to check and build.</p>
         </div>
       </div>
     </div>
@@ -607,13 +607,16 @@ function drawSegments(steps) {
 async function dispatch(workflow, inputs) {
   const rid = Math.random().toString(36).slice(2, 10);
   await gh(`${repoPath()}/actions/workflows/${workflow}/dispatches`, { method: "POST", body: JSON.stringify({ ref: "main", inputs: { ...inputs, request_id: rid } }) });
-  for (let i = 0; i < 40; i++) {
+  return waitForRun(workflow, rid, 40);
+}
+async function waitForRun(workflow, rid, tries, notFound) {
+  for (let i = 0; i < tries; i++) {
     await sleep(2500);
     const d = await gh(`${repoPath()}/actions/workflows/${workflow}/runs?per_page=15`);
     const run = d.workflow_runs.find(r => (r.display_title || "").includes(`[${rid}]`));
     if (run) return run;
   }
-  throw new Error("GitHub accepted the request but the run didn’t appear. Check the Actions tab.");
+  throw new Error(notFound || "GitHub accepted the request but the run didn’t appear. Check the Actions tab.");
 }
 const STEP_NAMES = { "Run actions/checkout@v4": "Getting the code", "Run actions/setup-python@v5": "Preparing Python",
   "Build the video": "Script, voice, footage and rendering", "Run actions/upload-artifact@v4": "Saving the video",
@@ -809,6 +812,7 @@ $("#rmBtn").onclick = async e => {
   const url = $("#rmUrl").value.trim(), text = $("#rmText").value.trim(), file = $("#rmFile").files[0];
   if (!url && !text && !file) return toast("Paste a link, upload the video, or paste its transcript.", true);
   if (!file && url && !/^https?:\/\//.test(url)) return toast("That link should start with https://", true);
+  const viaPC = !file && !text && url && !/youtu\.?be/i.test(url);
   const btn = e.currentTarget, mode = $("input[name=rmMode]:checked").value;
   busy(btn, true, text ? "Writing…" : "Transcribing…"); $("#log").innerHTML = "";
   screen(text ? "Gemini is writing" : "Transcribing the video", mode === "react" ? "Your reaction" : "Your own version",
@@ -816,8 +820,21 @@ $("#rmBtn").onclick = async e => {
   $("#screenMsg").insertAdjacentHTML("afterbegin", `<div class="now" id="nowStep" style="display:none"></div>`);
   $("#screenMsg").insertAdjacentHTML("beforeend", `<div class="sub" id="subStep"></div>`);
   try {
-    const upload_id = file ? await uploadFiles([{ path: `media.${ext(file, "mp4")}`, blob: file, label: "the video" }]) : "";
-    const run = await dispatch("ai-text.yml", { mode, upload_id, url: (file || text) ? "" : url, context: file ? "" : text.slice(0, 20000), language: $("#rmLang").value });
+    let run;
+    if (viaPC) {
+      // Instagram & co block servers: your PC helper downloads it (pc_helper.py)
+      const rid = Math.random().toString(36).slice(2, 10);
+      const note = new Blob([JSON.stringify({ url, mode, language: $("#rmLang").value, request_id: rid, created: Date.now() })], { type: "application/json" });
+      await uploadFiles([{ path: "request.json", blob: note, label: "the link" }]);
+      screen("Your PC is downloading it", mode === "react" ? "Your reaction" : "Your own version", "The PC helper picks it up within a few seconds.");
+      $("#screenMsg").insertAdjacentHTML("afterbegin", `<div class="now" id="nowStep" style="display:none"></div>`);
+      $("#screenMsg").insertAdjacentHTML("beforeend", `<div class="sub" id="subStep"></div>`);
+      run = await waitForRun("ai-text.yml", rid, 60,
+        "Your PC helper didn’t answer. On your PC run: python pc_helper.py (and leave it open), then try again. Or save the video and use “Upload the video”.");
+    } else {
+      const upload_id = file ? await uploadFiles([{ path: `media.${ext(file, "mp4")}`, blob: file, label: "the video" }]) : "";
+      run = await dispatch("ai-text.yml", { mode, upload_id, url: (file || text) ? "" : url, context: file ? "" : text.slice(0, 20000), language: $("#rmLang").value });
+    }
     const { job } = await watch(run);
     const r = await annotation(job, "script");
     $("#language").value = $("#rmLang").value;
